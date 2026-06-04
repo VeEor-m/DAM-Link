@@ -6,7 +6,7 @@ const ConfigSchema = z.object({
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
 
   API_HOST: z.string().default('0.0.0.0'),
-  API_PORT: z.coerce.number().int().positive().default(3000),
+  API_PORT: z.coerce.number().int().nonnegative().default(3000),
   API_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
 
   DATABASE_URL: z.string().min(1),

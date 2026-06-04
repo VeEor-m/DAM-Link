@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 /** Test env. Loaded once by globalSetup, frozen for the test run. */
 export const TEST_ENV = {
   NODE_ENV: 'test' as const,
-  LOG_LEVEL: 'silent',
+  LOG_LEVEL: 'fatal', // 'silent' isn't a Pino enum value; 'fatal' is the quietest.
   WEB_ORIGIN: 'http://localhost:5173',
   API_HOST: '127.0.0.1',
   API_PORT: '0', // ephemeral when binding via app.inject

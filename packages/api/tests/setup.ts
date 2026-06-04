@@ -1,7 +1,12 @@
 import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import postgres from 'postgres';
 import { applyTestEnv } from './helpers/env.js';
 import { _closeDbForTests } from '../src/db/client.js';
+
+// Walk up to the monorepo root so docker compose can find the file.
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 export async function setup(): Promise<void> {
   applyTestEnv();
@@ -11,6 +16,7 @@ export async function setup(): Promise<void> {
   console.log('[vitest globalSetup] ensuring docker-compose.test is up...');
   execSync('docker compose -f docker-compose.test.yml up -d', {
     stdio: 'inherit',
+    cwd: repoRoot,
   });
 
   // 2. Wait for Postgres to be ready
