@@ -187,6 +187,7 @@ export const shareLinks = pgTable(
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
 export type Org = typeof orgs.$inferSelect;
 export type NewOrg = typeof orgs.$inferInsert;
 export type Membership = typeof memberships.$inferSelect;
