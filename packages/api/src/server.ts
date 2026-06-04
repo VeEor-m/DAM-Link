@@ -9,6 +9,7 @@ import { registerHelmet } from './plugins/helmet.js';
 import { registerSentry } from './plugins/sentry.js';
 import { registerSwagger } from './plugins/swagger.js';
 import { registerHealth } from './plugins/health.js';
+import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
   const app: App = Fastify({
@@ -25,6 +26,7 @@ export async function buildApp(): Promise<App> {
   await registerCors(app);
   await registerSwagger(app);
   await registerHealth(app);
+  await registerPingRoute(app);
 
   return app;
 }
