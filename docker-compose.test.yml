@@ -16,6 +16,8 @@ services:
       - /var/lib/postgresql/data
     volumes:
       - ./packages/api/drizzle/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./docker/postgres/pg_hba.conf:/etc/pg_hba.conf:ro
+    command: ["postgres", "-c", "hba_file=/etc/pg_hba.conf"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dam -d dam_link_test"]
       interval: 2s

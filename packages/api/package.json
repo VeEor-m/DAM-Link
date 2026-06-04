@@ -16,7 +16,6 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.668.0",
     "@aws-sdk/s3-request-presigner": "3.668.0",
     "@dam-link/contracts": "workspace:*",
     "@fastify/cors": "10.0.1",
@@ -32,6 +31,7 @@
     "zod": "3.23.8"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "3.668.0",
     "@types/node": "22.7.5",
     "dotenv": "^17.4.2",
     "drizzle-kit": "0.28.0",
