@@ -1,10 +1,13 @@
 // Augment FastifyRequest with our custom context. Populated by plugins later.
 import 'fastify';
+import type { User } from './db/schema.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** Populated by request-id plugin. */
     requestId: string;
+    /** Populated by auth plugin. Null when the request is unauthenticated. */
+    user: User | null;
   }
 }
 
