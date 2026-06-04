@@ -68,16 +68,26 @@ describe('sessions repo', () => {
       displayName: 'A',
     });
     const id = newSessionId();
+    // Seed with an explicit old timestamp so we can detect the touch without
+    // relying on a comparison that could be defeated by Docker↔host clock skew.
+    const oldSeen = new Date('2020-01-01T00:00:00Z');
     await createSession({
       id,
       userId: user.id,
       expiresAt: newSessionExpiry(),
+      lastSeenAt: oldSeen,
     });
     const before = (await findSessionById(id))!.lastSeenAt;
-    await new Promise((r) => setTimeout(r, 10));
+    expect(before.getTime()).toBe(oldSeen.getTime());
+
+    const justBeforeTouch = Date.now();
     await touchSession(id);
     const after = (await findSessionById(id))!.lastSeenAt;
-    expect(after.getTime()).toBeGreaterThan(before.getTime());
+
+    // After touch: lastSeenAt should reflect `new Date()` from the Node host.
+    // Allow up to 5s of slack for slow CI / Docker clock drift.
+    expect(after.getTime()).toBeGreaterThanOrEqual(justBeforeTouch - 5000);
+    expect(after.getTime()).toBeLessThanOrEqual(Date.now() + 5000);
   });
 
   it('deletes a session', async () => {
