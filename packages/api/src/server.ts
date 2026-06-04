@@ -9,6 +9,12 @@ import { registerHelmet } from './plugins/helmet.js';
 import { registerSentry } from './plugins/sentry.js';
 import { registerSwagger } from './plugins/swagger.js';
 import { registerHealth } from './plugins/health.js';
+import { registerRateLimit } from './plugins/rate-limit.js';
+import { registerCookie } from './plugins/cookie.js';
+import { registerCsrf } from './plugins/csrf.js';
+import { registerAuth } from './plugins/auth.js';
+import { registerZodValidator } from './plugins/zod-validator.js';
+import { registerAuthRoutes } from './routes/v1/auth.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
@@ -19,6 +25,12 @@ export async function buildApp(): Promise<App> {
     trustProxy: true,
   });
 
+  // Set a Zod-aware validator compiler BEFORE any routes are registered.
+  // Zod schemas can't be compiled by the default Ajv compiler, so we skip
+  // validation at the framework level for Zod schemas and rely on the
+  // handler to call `Schema.parse(req.body)`.
+  registerZodValidator(app);
+
   await registerRequestId(app);
   await registerSentry(app);
   await registerErrorHandler(app);
@@ -26,6 +38,11 @@ export async function buildApp(): Promise<App> {
   await registerCors(app);
   await registerSwagger(app);
   await registerHealth(app);
+  await registerRateLimit(app);
+  await registerCookie(app);
+  await registerCsrf(app);
+  await registerAuth(app);
+  await registerAuthRoutes(app);
   await registerPingRoute(app);
 
   return app;
