@@ -10,10 +10,12 @@ services:
       POSTGRES_PASSWORD: dam
       POSTGRES_DB: dam_link
     ports:
-      - "5432:5432"
+      - "54321:5432"
     volumes:
       - dam-postgres-data:/var/lib/postgresql/data
       - ./packages/api/drizzle/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./docker/postgres/pg_hba.conf:/etc/pg_hba.conf:ro
+    command: ["postgres", "-c", "hba_file=/etc/pg_hba.conf"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dam -d dam_link"]
       interval: 5s

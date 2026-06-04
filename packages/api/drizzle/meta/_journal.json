@@ -8,6 +8,13 @@
       "when": 1780580374650,
       "tag": "0000_lethal_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780580374651,
+      "tag": "0001_trgm_and_gin",
+      "breakpoints": true
     }
   ]
 }

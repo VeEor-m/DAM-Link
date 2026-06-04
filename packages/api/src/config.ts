@@ -25,10 +25,20 @@ const ConfigSchema = z.object({
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
   SESSION_COOKIE_SECRET: z.string().min(16),
 
-  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_DSN: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
+    .pipe(z.string().url().optional()),
 
-  TURNSTILE_SITE_KEY: z.string().optional(),
-  TURNSTILE_SECRET_KEY: z.string().optional(),
+  TURNSTILE_SITE_KEY: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
+  TURNSTILE_SECRET_KEY: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

@@ -1,15 +1,30 @@
 import type { App } from '../types.js';
-import { z } from 'zod';
 import { pingS3 } from '../lib/s3.js';
 import { pingDb } from '../db/client.js';
 
-const HealthResponseSchema = z.object({
-  status: z.enum(['ok', 'degraded']),
-  db: z.enum(['ok', 'down']),
-  s3: z.enum(['ok', 'down']),
-  version: z.string(),
-  uptime: z.number(),
-});
+// Plain JSON schema (avoids zod-to-json-schema quirks with Fastify's
+// response serializer). We validate the body shape with Zod in tests.
+const HealthResponseSchema = {
+  type: 'object',
+  properties: {
+    status: { type: 'string', enum: ['ok', 'degraded'] },
+    db: { type: 'string', enum: ['ok', 'down'] },
+    s3: { type: 'string', enum: ['ok', 'down'] },
+    version: { type: 'string' },
+    uptime: { type: 'number' },
+  },
+  required: ['status', 'db', 's3', 'version', 'uptime'],
+} as const;
+
+const VersionResponseSchema = {
+  type: 'object',
+  properties: {
+    version: { type: 'string' },
+    commit: { type: ['string', 'null'] },
+    buildTime: { type: ['string', 'null'] },
+  },
+  required: ['version', 'commit', 'buildTime'],
+} as const;
 
 export async function registerHealth(app: App): Promise<void> {
   const start = Date.now();
@@ -18,7 +33,10 @@ export async function registerHealth(app: App): Promise<void> {
     '/healthz',
     {
       schema: {
-        response: { 200: HealthResponseSchema, 503: HealthResponseSchema },
+        response: {
+          200: HealthResponseSchema,
+          503: HealthResponseSchema,
+        },
         tags: ['ops'],
         summary: 'Liveness + readiness probe',
       },
@@ -42,11 +60,7 @@ export async function registerHealth(app: App): Promise<void> {
     {
       schema: {
         response: {
-          200: z.object({
-            version: z.string(),
-            commit: z.string().nullable(),
-            buildTime: z.string().nullable(),
-          }),
+          200: VersionResponseSchema,
         },
         tags: ['ops'],
         summary: 'Build version metadata',
