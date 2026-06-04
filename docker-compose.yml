@@ -1,0 +1,66 @@
+name: dam-link-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dam-link-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dam
+      POSTGRES_PASSWORD: dam
+      POSTGRES_DB: dam_link
+    ports:
+      - "5432:5432"
+    volumes:
+      - dam-postgres-data:/var/lib/postgresql/data
+      - ./packages/api/drizzle/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dam -d dam_link"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: dam-link-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: dam
+      MINIO_ROOT_PASSWORD: dams3cret
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - dam-minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-bucket:
+    image: minio/mc:latest
+    container_name: dam-link-minio-bucket
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 dam dams3cret &&
+      mc mb --ignore-existing local/dam-link-dev &&
+      mc anonymous set download local/dam-link-dev &&
+      echo 'Bucket dam-link-dev ready.'
+      "
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: dam-link-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web UI
+
+volumes:
+  dam-postgres-data:
+  dam-minio-data:
