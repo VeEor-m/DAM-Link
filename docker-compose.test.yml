@@ -1,0 +1,55 @@
+name: dam-link-test
+
+# Runs alongside docker-compose.yml — uses different ports so both can be up.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dam-link-postgres-test
+    environment:
+      POSTGRES_USER: dam
+      POSTGRES_PASSWORD: dam
+      POSTGRES_DB: dam_link_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./packages/api/drizzle/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dam -d dam_link_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio:
+    image: minio/minio:latest
+    container_name: dam-link-minio-test
+    command: server /data --console-address ":9002"
+    environment:
+      MINIO_ROOT_USER: dam
+      MINIO_ROOT_PASSWORD: dams3cret
+    ports:
+      - "9003:9000"   # S3 API
+      - "9002:9001"   # web console
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio-bucket:
+    image: minio/mc:latest
+    container_name: dam-link-minio-bucket-test
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 dam dams3cret &&
+      mc mb --ignore-existing local/dam-link-test &&
+      mc anonymous set download local/dam-link-test &&
+      echo 'Test bucket dam-link-test ready.'
+      "
