@@ -27,7 +27,7 @@ import { registerImportRoutes } from './routes/v1/import.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
-  initSentryFromEnv();
+  void initSentryFromEnv();
 
   const app: App = Fastify({
     loggerInstance: logger,
