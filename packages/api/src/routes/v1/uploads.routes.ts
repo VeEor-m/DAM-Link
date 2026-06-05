@@ -34,6 +34,7 @@ export async function registerUploadRoutes(app: App): Promise<void> {
       schema: {
         body: InitiateUploadInputSchema,
         response: { 200: InitiateUploadEnvelopeJsonSchema },
+        tags: ['uploads'],
         summary: 'Initiate an upload. Returns a presigned PUT URL and a draft assetId.',
       },
     },
