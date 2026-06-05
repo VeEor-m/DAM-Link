@@ -14,7 +14,7 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/api/package.json packages/api/
 # web is added in Plan 8; include if it exists.
-COPY packages/web/package.json packages/web/ 2>/dev/null || true
+COPY packages/web/package.json packages/web/
 RUN pnpm install --frozen-lockfile --filter @dam-link/contracts... --filter @dam-link/api...
 
 # --- Build -----------------------------------------------------------------
