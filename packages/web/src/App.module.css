@@ -1,0 +1,17 @@
+.emptyTrashWrapper {
+  position: fixed;
+  /* 80px clears the Toast stack (toast at bottom: var(--space-7) = 16px + ~64px toast region). */
+  bottom: 80px;
+  right: 24px;
+}
+
+.emptyTrashButton {
+  height: 32px;
+  padding: 0 var(--space-7);
+  border: 0.5px solid var(--color-border-danger);
+  color: var(--color-text-danger);
+  background: transparent;
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  font: inherit;
+}

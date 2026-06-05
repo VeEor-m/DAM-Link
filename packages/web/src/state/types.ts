@@ -1,0 +1,73 @@
+// Domain types for the DAM browser.
+
+export type AssetType = 'image' | 'video' | 'document' | 'audio';
+
+export interface Asset {
+  id: string;
+  name: string;
+  type: AssetType;
+  format: string; // uppercase extension: PNG, JPG, MP4, PDF...
+  size: number; // bytes
+  uploadedAt: string; // ISO 8601
+  uploadedBy: string;
+  tags: string[];
+  favorite: boolean;
+  deletedAt: string | null;
+  // type-specific
+  width?: number;
+  height?: number;
+  duration?: number; // seconds, for video/audio
+  // base64 data URL — only populated for uploaded images, used as the card thumbnail
+  previewDataUrl?: string;
+}
+
+/** View modes for the main browser pane. */
+export type ViewMode = 'grid' | 'list';
+
+/** Sort keys for the asset list/grid. */
+export type SortKey = 'name' | 'type' | 'size' | 'date' | 'favorite';
+
+/** Sort direction. */
+export type SortDir = 'asc' | 'desc';
+
+/** Sidebar selection. Tagged unions keep the predicate logic explicit. */
+export type SidebarSelection =
+  | { kind: 'all' }
+  | { kind: 'type'; type: AssetType }
+  | { kind: 'tag'; tag: string }
+  | { kind: 'smart'; smart: SmartCollection };
+
+export type SmartCollection = 'recent' | 'favorites' | 'trash';
+
+export type SizeBucket = 'small' | 'medium' | 'large';
+export type DateBucket = '7d' | '30d' | '90d' | 'all';
+
+export interface FilterState {
+  typeFilter: AssetType[];
+  formatFilter: string[];
+  sizeBucket: SizeBucket | null;
+  dateBucket: DateBucket;
+  uploaderFilter: string[];
+}
+
+export interface UIState {
+  searchQuery: string;
+  selection: SidebarSelection;
+  viewMode: ViewMode;
+  selectedAssetId: string | null;
+  filterPanelOpen: boolean;
+  uploadDialogOpen: boolean;
+  filter: FilterState;
+  /** Ids checked for multi-select / batch operations. Orthogonal to
+   *  `selectedAssetId` (the single asset open in the detail panel). */
+  selectedIds: string[];
+  /** Sort key + direction applied to the visible assets. Lives in UI
+   *  state so it persists across view-mode switches and sessions. */
+  sortKey: SortKey;
+  sortDir: SortDir;
+}
+
+export interface AppState {
+  assets: Asset[];
+  ui: UIState;
+}

@@ -1,0 +1,32 @@
+.body {
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+}
+
+.confirmBtn {
+  height: 32px;
+  padding: 0 var(--space-6);
+  border: 0.5px solid var(--color-border-info);
+  border-radius: var(--border-radius-md);
+  background: var(--color-border-info);
+  color: var(--color-text-on-info);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}
+
+.confirmBtn.danger {
+  border-color: var(--color-border-danger);
+  background: var(--color-border-danger);
+}
+
+.cancelBtn {
+  height: 32px;
+  padding: 0 var(--space-6);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+}

@@ -1,0 +1,188 @@
+.toolbar {
+  /* 3-column grid: [logo ⇤]  [search 480px centered on toolbar centerline]  [actions ⇥]
+     The two 1fr columns absorb extra space equally so the search's center
+     coincides with the toolbar's centerline, regardless of logo / actions
+     widths. compact modifier (phone/tablet) switches to flex so the search
+     can expand to fill the narrow row. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+}
+
+.toolbar.compact {
+  display: flex;
+}
+
+.logo {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-info);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.search {
+  /* lives in the auto grid column → centered between the two 1fr columns */
+  width: 480px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 0 var(--space-4);
+  height: 32px;
+  color: var(--color-text-secondary);
+  transition: border-color var(--motion-fast) var(--easing-standard);
+}
+
+.toolbar.compact .search {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search:focus-within {
+  border-color: var(--color-border-info);
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.actions {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.sortGroup {
+  display: inline-flex;
+  align-items: center;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-primary);
+  overflow: hidden;
+  height: 28px;
+}
+
+.sortSelect {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  padding: 0 var(--space-2);
+  height: 100%;
+  cursor: pointer;
+}
+
+.sortSelect:focus {
+  outline: 2px solid var(--color-border-info);
+  outline-offset: -2px;
+}
+
+.sortDir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 100%;
+  background: transparent;
+  border: none;
+  border-left: 0.5px solid var(--color-border-secondary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.sortDir:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+.toolbar.compact .actions {
+  margin-left: auto;
+}
+
+.toggleGroup {
+  display: flex;
+  gap: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-4);
+  height: 32px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--motion-fast) var(--easing-standard),
+    border-color var(--motion-fast) var(--easing-standard),
+    color var(--motion-fast) var(--easing-standard);
+  position: relative;
+}
+
+.btn:hover {
+  background: var(--color-background-secondary);
+}
+
+.btn.active {
+  border-color: var(--color-border-info);
+  color: var(--color-text-info);
+  background: var(--color-background-info);
+}
+
+/* View-toggle buttons share a single border so they look like a segmented control */
+.toggleGroup .btn:not(:first-child) {
+  border-left-color: transparent;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.toggleGroup .btn:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  margin-left: 2px;
+  background: var(--color-border-info);
+  color: var(--color-text-on-info);
+  border-radius: var(--border-radius-pill);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}

@@ -1,0 +1,96 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  border-left: 2px solid transparent;
+  text-align: left;
+  width: 100%;
+  transition:
+    background var(--motion-fast) var(--easing-standard),
+    color var(--motion-fast) var(--easing-standard),
+    border-color var(--motion-fast) var(--easing-standard);
+}
+
+.item:hover {
+  background: var(--color-background-secondary);
+}
+
+.item.active {
+  color: var(--color-text-info);
+  border-left-color: var(--color-border-info);
+  background: var(--color-background-info);
+}
+
+.itemLabel {
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sectionLabel {
+  margin: var(--space-4) var(--space-6) var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.count {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.item.active .count {
+  color: var(--color-text-info);
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* Indent so the label aligns with the tag item labels:
+     item label sits at padding-left + icon(14) + gap(6) = 34px;
+     chevron is 12px, gap 6px → padding-left = 34 - 12 - 6 = 16. */
+  padding: var(--space-1) var(--space-6);
+  padding-left: calc(var(--space-6) + 2px);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  text-align: left;
+  width: 100%;
+  transition: color var(--motion-fast) var(--easing-standard);
+}
+
+.toggleBtn:hover {
+  color: var(--color-text-secondary);
+}
+
+/* On phone/tablet, the sidebar lives in a Drawer with its own padding;
+   trim the inner padding so the items look at home there. */
+body[data-viewport="phone"] .item,
+body[data-viewport="tablet"] .item {
+  padding-left: var(--space-7);
+  padding-right: var(--space-7);
+}
+
+body[data-viewport="phone"] .toggleBtn,
+body[data-viewport="tablet"] .toggleBtn {
+  padding-left: calc(var(--space-7) + 2px);
+}

@@ -1,0 +1,86 @@
+<h2>小屏（手机）布局方案</h2>
+<p class="subtitle">375px 视口宽度下的 3 种主流方式。点选你想要的，下方 mockup 是按 1:1 比例画的。</p>
+
+<div class="cards">
+  <div class="card" data-choice="drawer" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>A. 抽屉 + 底部 Sheet</h3>
+      <div style="width:200px;height:340px;border:2px solid #333;border-radius:18px;background:#f6f8fa;margin:8px auto;position:relative;overflow:hidden;font-family:sans-serif">
+        <div style="background:#fff;border-bottom:1px solid #ddd;padding:6px 10px;display:flex;align-items:center;gap:8px;font-size:11px">
+          <span style="font-size:14px">☰</span>
+          <span style="color:#666">DAM-Link</span>
+        </div>
+        <div style="padding:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:#fff">
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+        </div>
+        <div style="position:absolute;bottom:0;left:0;right:0;height:130px;background:#fff;border-top:2px solid #aaa;border-radius:12px 12px 0 0;padding:8px 10px;box-shadow:0 -2px 8px rgba(0,0,0,0.1)">
+          <div style="width:28px;height:3px;background:#ccc;border-radius:2px;margin:0 auto 8px"></div>
+          <div style="font-size:10px;color:#999">详情（半高）</div>
+          <div style="height:6px;background:#eef;border-radius:2px;margin-top:6px;width:60%"></div>
+          <div style="height:6px;background:#eef;border-radius:2px;margin-top:4px;width:80%"></div>
+          <div style="height:6px;background:#eef;border-radius:2px;margin-top:4px;width:70%"></div>
+        </div>
+      </div>
+      <p style="font-size:13px;margin:8px 0"><strong>机制</strong>：☰ 打开左侧筛选抽屉；点卡片 → 底部 Sheet 滑出详情（半高，可拉成全屏）</p>
+      <p style="font-size:12px;color:#666"><strong>手感</strong>：最接近原生 App；缺点是 2 层深度（先看列表再展开详情）</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tabs" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>B. 顶部 Tab 切换</h3>
+      <div style="width:200px;height:340px;border:2px solid #333;border-radius:18px;background:#f6f8fa;margin:8px auto;position:relative;overflow:hidden;font-family:sans-serif">
+        <div style="background:#fff;border-bottom:1px solid #ddd;padding:6px 10px;font-size:11px">
+          <span style="color:#666">DAM-Link</span>
+        </div>
+        <div style="background:#fff;display:flex;border-bottom:1px solid #ddd">
+          <div style="flex:1;padding:6px;text-align:center;font-size:10px;border-bottom:2px solid #206bc4;color:#206bc4;font-weight:bold">资产</div>
+          <div style="flex:1;padding:6px;text-align:center;font-size:10px;color:#999">筛选</div>
+          <div style="flex:1;padding:6px;text-align:center;font-size:10px;color:#999">详情</div>
+        </div>
+        <div style="padding:6px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:#fff">
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+        </div>
+      </div>
+      <p style="font-size:13px;margin:8px 0"><strong>机制</strong>：顶部 3 个 Tab（资产 / 筛选 / 详情），点哪个显示哪个面板</p>
+      <p style="font-size:12px;color:#666"><strong>手感</strong>：极简；缺点是失去上下文（看详情时看不到列表）</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="iconstrip" onclick="toggleSelect(this)">
+    <div class="card-body">
+      <h3>C. 自适应 3 栏（图标条）</h3>
+      <div style="width:200px;height:340px;border:2px solid #333;border-radius:18px;background:#f6f8fa;margin:8px auto;position:relative;overflow:hidden;font-family:sans-serif;display:flex">
+        <div style="width:40px;background:#fff;border-right:1px solid #ddd;display:flex;flex-direction:column;align-items:center;padding-top:8px;gap:10px">
+          <div style="width:20px;height:20px;background:#eef;border-radius:3px"></div>
+          <div style="width:20px;height:20px;background:#c8d8e8;border-radius:3px"></div>
+          <div style="width:20px;height:20px;background:#c8d8e8;border-radius:3px"></div>
+          <div style="width:20px;height:20px;background:#c8d8e8;border-radius:3px"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column">
+          <div style="padding:6px 8px;background:#fff;border-bottom:1px solid #ddd;font-size:10px;color:#666">DAM-Link</div>
+          <div style="flex:1;padding:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
+            <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+            <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+            <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+            <div style="aspect-ratio:1;background:#c8d8e8;border-radius:3px"></div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:13px;margin:8px 0"><strong>机制</strong>：左侧 40px 图标条（macOS Finder 风格）= Sidebar；右侧主区 + 详情同列上下排</p>
+      <p style="font-size:12px;color:#666"><strong>手感</strong>：常驻导航；缺点是图标条在 375px 下吃 11% 宽度，且不如 A 直观</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:24px">点选后告诉我你的选择（A / B / C），或用 Other 描述别的方案。</p>
