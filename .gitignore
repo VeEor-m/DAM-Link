@@ -25,3 +25,6 @@ packages/api/drizzle/meta/_journal.json.bak
 
 # worktrees
 .worktrees/
+
+# prod-simulation secrets (used by docker-compose.prod.yml)
+.env.prod-local

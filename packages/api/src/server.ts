@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import type { App } from './types.js';
 import { loadConfig } from './config.js';
 import { logger } from './lib/logger.js';
+import { initSentryFromEnv } from './lib/sentry.js';
 import { registerRequestId } from './plugins/request-id.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerCors } from './plugins/cors.js';
@@ -26,6 +27,8 @@ import { registerImportRoutes } from './routes/v1/import.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
+  void initSentryFromEnv();
+
   const app: App = Fastify({
     loggerInstance: logger,
     genReqId: () => crypto.randomUUID(),
@@ -67,6 +70,17 @@ export async function buildApp(): Promise<App> {
 async function main() {
   const config = loadConfig();
   const app = await buildApp();
+
+  app.log.info(
+    {
+      nodeEnv: config.NODE_ENV,
+      apiPublicUrl: config.API_PUBLIC_URL,
+      webOrigin: config.WEB_ORIGIN,
+      sentryEnabled: !!config.SENTRY_DSN,
+      sentryRelease: process.env.GIT_COMMIT ?? 'dev',
+    },
+    'boot summary',
+  );
 
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');

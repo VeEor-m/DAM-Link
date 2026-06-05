@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   MAX_FILE_SIZE_BYTES,
-  ALLOWED_MIME_TYPES,
   MimeTypeSchema,
   InitiateUploadInputSchema,
   InitiateUploadResponseSchema,

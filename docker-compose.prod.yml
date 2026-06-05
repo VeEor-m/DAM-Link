@@ -1,0 +1,96 @@
+name: dam-link-prod-local
+
+# Brings up the production image alongside Postgres + MinIO so you can
+# reproduce prod locally. Set secrets via `.env.prod-local` (gitignored).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dam-link-postgres-prod
+    environment:
+      POSTGRES_USER: dam
+      POSTGRES_PASSWORD: dams3cret
+      POSTGRES_DB: dam_link
+    ports:
+      - "5432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./packages/api/drizzle/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dam -d dam_link"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: dam-link-minio-prod
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: dam
+      MINIO_ROOT_PASSWORD: dams3cret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-bucket:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 dam dams3cret &&
+      mc mb --ignore-existing local/dam-link-prod &&
+      echo 'Bucket dam-link-prod ready.'
+      "
+
+  api:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: local-prod
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    image: dam-link-api:prod-local
+    container_name: dam-link-api-prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-bucket:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      API_HOST: 0.0.0.0
+      API_PORT: 3000
+      API_PUBLIC_URL: http://localhost:3000
+      WEB_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgres://dam:dams3cret@postgres:5432/dam_link
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: dam
+      S3_SECRET_KEY: dams3cret
+      S3_BUCKET: dam-link-prod
+      S3_FORCE_PATH_STYLE: "true"
+      SESSION_COOKIE_NAME: dam_session
+      SESSION_TTL_DAYS: "30"
+      SESSION_COOKIE_SECRET: ${SESSION_COOKIE_SECRET:?must be set in .env.prod-local}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-test-turnstile}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
