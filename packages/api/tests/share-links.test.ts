@@ -189,7 +189,7 @@ describe('share links', () => {
     expect(r.statusCode).toBe(404);
   });
 
-  it('Viewer can list share links but not create or revoke them', async () => {
+  it('Viewer cannot create share links', async () => {
     const ownerSession = await login(app, 'o@e.com');
     const viewerSession = await login(app, 'v@e.com');
     const { orgId, userId } = await createOrgViaApi(app, ownerSession, 'Org');
@@ -202,5 +202,6 @@ describe('share links', () => {
       payload: {},
     });
     expect(create.statusCode).toBe(403);
+    expect(create.json().error.code).toBe('INSUFFICIENT_ROLE');
   });
 });
