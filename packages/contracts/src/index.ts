@@ -19,3 +19,4 @@ export {
   ListUserOrgsResponseSchema,
   // AssetPageSchema intentionally omitted — the concrete page schema is re-exported from ./assets.js
 } from './orgs.js';
+export * from './uploads.js';
