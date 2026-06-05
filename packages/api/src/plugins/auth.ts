@@ -32,7 +32,7 @@ export async function registerAuth(app: App): Promise<void> {
   });
 }
 
-export function requireUser(this: void, req: FastifyRequest): void {
+export async function requireUser(this: void, req: FastifyRequest): Promise<void> {
   if (!req.user) {
     throw new AppError(401, 'UNAUTHENTICATED', 'Authentication required');
   }
