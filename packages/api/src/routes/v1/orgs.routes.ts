@@ -12,6 +12,7 @@ import {
 import { getOrgStats } from '../../services/members.service.js';
 import { requireUser } from '../../plugins/auth.js';
 import { requireRole } from '../../plugins/org-context.js';
+import { AppError } from '../../plugins/error-handler.js';
 
 function toOrg(o: { id: string; name: string; slug: string; createdAt: Date }) {
   return {
@@ -32,6 +33,7 @@ const OrgJsonSchema = {
     slug: { type: 'string' as const },
     createdAt: { type: 'string' as const, format: 'date-time' },
   },
+  required: ['id', 'name', 'slug', 'createdAt'],
 };
 
 const RoleEnum = { type: 'string' as const, enum: ['owner', 'editor', 'viewer'] };
@@ -42,8 +44,10 @@ const CreateOrgResponseSchema = {
     data: {
       type: 'object' as const,
       properties: { org: OrgJsonSchema, role: RoleEnum },
+      required: ['org', 'role'],
     },
   },
+  required: ['data'],
 };
 
 const ListOrgsResponseSchema = {
@@ -54,9 +58,11 @@ const ListOrgsResponseSchema = {
       items: {
         type: 'object' as const,
         properties: { org: OrgJsonSchema, role: RoleEnum },
+        required: ['org', 'role'],
       },
     },
   },
+  required: ['data'],
 };
 
 const GetOrgResponseSchema = {
@@ -70,8 +76,10 @@ const GetOrgResponseSchema = {
         memberCount: { type: 'number' as const },
         assetCount: { type: 'number' as const },
       },
+      required: ['org', 'role', 'memberCount', 'assetCount'],
     },
   },
+  required: ['data'],
 };
 
 const UpdateOrgResponseSchema = {
@@ -80,8 +88,10 @@ const UpdateOrgResponseSchema = {
     data: {
       type: 'object' as const,
       properties: { org: OrgJsonSchema },
+      required: ['org'],
     },
   },
+  required: ['data'],
 };
 
 const NullResponseSchema = { type: 'null' as const };
@@ -155,7 +165,10 @@ export async function registerOrgsRoutes(app: App): Promise<void> {
     },
     async (req) => {
       const body = UpdateOrgInputSchema.parse(req.body);
-      const org = await renameOrg(req.orgContext!.org.id, body.name!);
+      if (!body.name) {
+        throw new AppError(422, 'VALIDATION_ERROR', 'name is required');
+      }
+      const org = await renameOrg(req.orgContext!.org.id, body.name);
       return { data: { org: toOrg(org) } };
     },
   );

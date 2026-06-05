@@ -11,6 +11,7 @@ import {
 } from '../../services/members.service.js';
 import { requireUser } from '../../plugins/auth.js';
 import { requireRole } from '../../plugins/org-context.js';
+import { AppError } from '../../plugins/error-handler.js';
 
 // JSON-schema response objects (Zod fails on Fastify response schema serialisation).
 // See memory/gotchas.md.
@@ -34,6 +35,7 @@ const MembershipJsonSchema = {
     createdAt: { type: 'string' as const, format: 'date-time' },
     user: UserJsonSchema,
   },
+  required: ['userId', 'orgId', 'role', 'createdAt', 'user'],
 };
 
 const ListMembersResponseSchema = {
@@ -44,6 +46,7 @@ const ListMembersResponseSchema = {
       items: MembershipJsonSchema,
     },
   },
+  required: ['data'],
 };
 
 const MembershipResponseSchema = {
@@ -51,6 +54,7 @@ const MembershipResponseSchema = {
   properties: {
     data: MembershipJsonSchema,
   },
+  required: ['data'],
 };
 
 const NullResponseSchema = { type: 'null' as const };
@@ -97,7 +101,10 @@ export async function registerMembersRoutes(app: App): Promise<void> {
       const body = InviteMemberInputSchema.parse(req.body);
       const m = await inviteMember(req.orgContext!.org.id, body);
       const list = await listMembers(req.orgContext!.org.id);
-      const joined = list.find((x) => x.userId === m.userId)!;
+      const joined = list.find((x) => x.userId === m.userId);
+      if (!joined) {
+        throw new AppError(500, 'MEMBERSHIP_LOOKUP_FAILED', 'Created membership not visible after invite');
+      }
       return {
         data: {
           userId: joined.userId,
@@ -126,13 +133,18 @@ export async function registerMembersRoutes(app: App): Promise<void> {
       const { userId } = req.params as { userId: string };
       const body = UpdateMemberRoleInputSchema.parse(req.body);
       const m = await changeMemberRole(req.orgContext!.org.id, userId, body.role);
+      const list = await listMembers(req.orgContext!.org.id);
+      const joined = list.find((x) => x.userId === m.userId);
+      if (!joined) {
+        throw new AppError(500, 'MEMBERSHIP_LOOKUP_FAILED', 'Updated membership not visible after change');
+      }
       return {
         data: {
-          userId: m.userId,
-          orgId: m.orgId,
-          role: m.role,
-          createdAt: m.createdAt.toISOString(),
-          user: { id: '', email: '', displayName: '' },
+          userId: joined.userId,
+          orgId: joined.orgId,
+          role: joined.role,
+          createdAt: joined.createdAt.toISOString(),
+          user: joined.user,
         },
       };
     },
