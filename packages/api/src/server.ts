@@ -19,6 +19,7 @@ import { registerAuthRoutes } from './routes/v1/auth.routes.js';
 import { registerOrgsRoutes } from './routes/v1/orgs.routes.js';
 import { registerAssetRoutes } from './routes/v1/assets.routes.js';
 import { registerMembersRoutes } from './routes/v1/members.routes.js';
+import { registerUploadRoutes } from './routes/v1/uploads.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
@@ -51,6 +52,7 @@ export async function buildApp(): Promise<App> {
   await registerOrgsRoutes(app);
   await registerMembersRoutes(app);
   await registerAssetRoutes(app);
+  await registerUploadRoutes(app);
   await registerPingRoute(app);
 
   return app;

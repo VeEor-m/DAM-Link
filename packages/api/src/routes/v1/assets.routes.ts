@@ -2,6 +2,7 @@ import type { App } from '../../types.js';
 import {
   AssetListQuerySchema,
   CreateAssetInputSchema,
+  FinalizeUploadInputSchema,
   UpdateAssetInputSchema,
 } from '@dam-link/contracts';
 import {
@@ -15,6 +16,7 @@ import {
   emptyTrashForOrg,
   getSidebarCounts,
 } from '../../services/assets.service.js';
+import { finalizeUpload } from '../../services/uploads.service.js';
 import { requireUser } from '../../plugins/auth.js';
 import { requireRole } from '../../plugins/org-context.js';
 
@@ -152,6 +154,21 @@ const EmptyTrashResponseSchema = {
 
 const NullResponseSchema = { type: 'null' as const };
 
+const FinalizeResponseJsonSchema = {
+  type: 'object' as const,
+  properties: {
+    data: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, format: 'uuid' },
+        status: { type: 'string' as const, enum: ['ready'] },
+      },
+      required: ['id', 'status'],
+    },
+  },
+  required: ['data'],
+} as const;
+
 export async function registerAssetRoutes(app: App): Promise<void> {
   // GET /api/v1/orgs/:orgId/assets — list with search, filter, sort, cursor pagination
   app.get(
@@ -261,6 +278,26 @@ export async function registerAssetRoutes(app: App): Promise<void> {
       const { id } = req.params as { id: string };
       const asset = await softDelete(req.orgContext!.org.id, id);
       return { data: asset };
+    },
+  );
+
+  // POST /api/v1/orgs/:orgId/assets/:id/finalize — Editor+
+  app.post(
+    '/api/v1/orgs/:orgId/assets/:id/finalize',
+    {
+      preHandler: [requireUser, requireRole('editor')],
+      schema: {
+        body: FinalizeUploadInputSchema,
+        response: { 200: FinalizeResponseJsonSchema },
+        tags: ['assets'],
+        summary: 'Finalize an upload: verifies the S3 object exists and transitions the asset to ready.',
+      },
+    },
+    async (req) => {
+      const { id } = req.params as { id: string };
+      const body = FinalizeUploadInputSchema.parse(req.body);
+      const result = await finalizeUpload(req.orgContext!.org.id, id, body);
+      return { data: result };
     },
   );
 
