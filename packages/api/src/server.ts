@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import type { App } from './types.js';
 import { loadConfig } from './config.js';
 import { logger } from './lib/logger.js';
+import { initSentryFromEnv } from './lib/sentry.js';
 import { registerRequestId } from './plugins/request-id.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
 import { registerCors } from './plugins/cors.js';
@@ -26,6 +27,8 @@ import { registerImportRoutes } from './routes/v1/import.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
+  initSentryFromEnv();
+
   const app: App = Fastify({
     loggerInstance: logger,
     genReqId: () => crypto.randomUUID(),

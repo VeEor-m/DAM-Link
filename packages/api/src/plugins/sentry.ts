@@ -1,16 +1,42 @@
 import type { App } from '../types.js';
-import { loadConfig } from '../config.js';
+import { ErrorBodySchema } from '@dam-link/contracts';
+import { captureException } from '../lib/sentry.js';
+import { logger } from '../lib/logger.js';
+import { AppError } from './error-handler.js';
 
 /**
- * Sentry is wired in Plan 9. For now this is a no-op plugin that
- * reserves the place and warns if SENTRY_DSN is set but unused.
+ * In Plan 1 this was a no-op stub. In production it captures every unhandled
+ * error into Sentry, with request context (URL, method, user id).
  */
-export async function registerSentry(_app: App): Promise<void> {
-  const config = loadConfig();
-  if (config.SENTRY_DSN && config.NODE_ENV === 'production') {
-    _app.log.warn(
-      { dsn: '[REDACTED]' },
-      'SENTRY_DSN is set but Sentry is not yet wired up. See Plan 9.',
-    );
-  }
+export async function registerSentry(app: App): Promise<void> {
+  app.setErrorHandler((err, req, reply) => {
+    // Always log locally first.
+    req.log.error({ err }, 'request error');
+
+    // Capture in Sentry for 5xx errors only (4xx are user errors, not bugs).
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    if (status >= 500) {
+      captureException(err, {
+        requestId: req.id,
+        method: req.method,
+        url: req.url,
+        userId: (req as { user?: { id?: string } }).user?.id,
+      });
+    }
+
+    // Delegate to the existing error handler (set by registerErrorHandler).
+    // We re-define behaviour here to avoid two setErrorHandler calls clashing.
+    if (err instanceof AppError) {
+      const body = ErrorBodySchema.parse({
+        error: { code: err.code, message: err.message, details: err.details },
+      });
+      return reply.status(err.statusCode).send(body);
+    }
+    const body = ErrorBodySchema.parse({
+      error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },
+    });
+    return reply.status(500).send(body);
+  });
+
+  logger.debug('sentry plugin registered');
 }
