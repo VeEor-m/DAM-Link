@@ -35,12 +35,15 @@ async function withThumbnailUrl<T extends { thumbnailKey?: string | null }>(
   return { ...a, thumbnailUrl: url };
 }
 
+/** Asset with a presigned thumbnail URL. Returned by all read paths. */
+export type AssetWithThumbnail = Awaited<ReturnType<typeof withThumbnailUrl>>;
+
 const MAX_PAGE_SIZE = 200;
 
 export async function listAssetsForOrg(
   orgId: string,
   query: AssetListQuery,
-): Promise<{ items: Awaited<ReturnType<typeof withThumbnailUrl>>[]; nextCursor: string | null }> {
+): Promise<{ items: AssetWithThumbnail[]; nextCursor: string | null }> {
   const args: AssetListArgs = {
     orgId,
     q: query.q,
@@ -65,7 +68,10 @@ export async function listAssetsForOrg(
   return { items, nextCursor };
 }
 
-export async function getAsset(orgId: string, id: string) {
+export async function getAsset(
+  orgId: string,
+  id: string,
+): Promise<Asset & { thumbnailUrl: string | null }> {
   const a = await findAssetById(orgId, id);
   if (!a) throw new AppError(404, 'ASSET_NOT_FOUND', 'Asset not found');
   return withThumbnailUrl(a);
