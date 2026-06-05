@@ -1,4 +1,5 @@
 import type { App } from '../types.js';
+import { ZodError } from 'zod';
 import { ErrorBodySchema } from '@dam-link/contracts';
 import { captureException } from '../lib/sentry.js';
 import { logger } from '../lib/logger.js';
@@ -31,6 +32,18 @@ export async function registerSentry(app: App): Promise<void> {
         error: { code: err.code, message: err.message, details: err.details },
       });
       return reply.status(err.statusCode).send(body);
+    }
+    // ZodError from Schema.parse() in route handlers — return 422 so existing
+    // tests asserting VALIDATION_ERROR still pass. 4xx, not sent to Sentry.
+    if (err instanceof ZodError) {
+      const body = ErrorBodySchema.parse({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid input',
+          details: err.issues,
+        },
+      });
+      return reply.status(422).send(body);
     }
     const body = ErrorBodySchema.parse({
       error: { code: 'INTERNAL_ERROR', message: 'Internal server error' },

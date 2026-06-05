@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/node';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
+import type { nodeProfilingIntegration as NodeProfilingIntegrationFn } from '@sentry/profiling-node';
 import { loadConfig } from '../config.js';
 import { logger } from './logger.js';
 
@@ -13,15 +13,26 @@ export interface SentryOptions {
   profilesSampleRate: number;
 }
 
-export function initSentry(opts: SentryOptions): void {
+export async function initSentry(opts: SentryOptions): Promise<void> {
   if (initialised) return;
+  // The profiling integration ships a native binary per Node ABI. On
+  // Windows + Node 24 (ABI 137) the prebuilt @sentry/profiling-node@8.42.0
+  // binary is missing (max ABI 127), so we load it lazily and skip
+  // gracefully. CI (Linux) and production (Linux) still get profiling.
+  let nodeProfilingIntegration: typeof NodeProfilingIntegrationFn | undefined;
+  try {
+    const mod = await import('@sentry/profiling-node');
+    nodeProfilingIntegration = mod.nodeProfilingIntegration;
+  } catch (err) {
+    logger.warn({ err }, 'sentry: profiling integration unavailable, continuing without');
+  }
   Sentry.init({
     dsn: opts.dsn,
     environment: opts.environment,
     release: opts.release,
     tracesSampleRate: opts.tracesSampleRate,
     profilesSampleRate: opts.profilesSampleRate,
-    integrations: [nodeProfilingIntegration()],
+    integrations: nodeProfilingIntegration ? [nodeProfilingIntegration()] : [],
     sendDefaultPii: false,
     beforeSend(event) {
       // Strip cookies and auth headers from breadcrumbs.
@@ -49,13 +60,13 @@ export function _resetSentryForTests(): void {
 }
 
 /** Boot-time init driven by env. Logs and skips if DSN is absent. */
-export function initSentryFromEnv(): boolean {
+export async function initSentryFromEnv(): Promise<boolean> {
   const config = loadConfig();
   if (!config.SENTRY_DSN) {
     logger.info('sentry: SENTRY_DSN not set, skipping init');
     return false;
   }
-  initSentry({
+  await initSentry({
     dsn: config.SENTRY_DSN,
     environment: config.NODE_ENV,
     release: process.env.GIT_COMMIT ?? 'dev',
