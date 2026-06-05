@@ -66,6 +66,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-bucket:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       LOG_LEVEL: info
