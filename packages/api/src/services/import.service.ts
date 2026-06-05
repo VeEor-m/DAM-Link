@@ -2,8 +2,7 @@ import { AppError } from '../plugins/error-handler.js';
 import { newId } from '../lib/ids.js';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { s3, BUCKET } from '../lib/s3.js';
-import { insertAsset } from '../repositories/assets.repo.js';
-import { generateThumbnailForAsset } from './thumbnails.service.js';
+import { insertAsset, updateAsset, deleteAssetHard } from '../repositories/assets.repo.js';
 import { logger } from '../lib/logger.js';
 import { ImportManifestSchema, type ImportResult, type ImportManifest } from '@dam-link/contracts';
 
@@ -17,9 +16,14 @@ export interface ImportedFile {
 }
 
 /**
- * Process a parsed manifest + thumbnail buffers. Creates draft assets,
- * uploads thumbnails, and (fire-and-forget) generates a server-side thumbnail
- * for each so width/height are populated.
+ * Process a parsed manifest + thumbnail buffers. Creates ready assets and
+ * uploads their client-supplied thumbnails.
+ *
+ * MVP trade-off: the import bundle carries thumbnails but not the original
+ * file bytes, so we do NOT run a server-side sharp pipeline here. status
+ * is 'ready' (the thumbnail is already in S3) and the user re-uploads
+ * originals later, at which point the standard upload pipeline generates
+ * (or regenerates) thumbnails.
  */
 export async function processImport(
   orgId: string,
@@ -49,6 +53,10 @@ export async function processImport(
       continue;
     }
 
+    // Roll back the row if anything after insertAsset fails (e.g. the S3
+    // upload throws). Without this we'd leave an asset with thumbnailKey=null
+    // and no UI surfacing.
+    let inserted = false;
     try {
       await insertAsset({
         id: serverId,
@@ -68,6 +76,7 @@ export async function processImport(
         height: entry.height ?? null,
         duration: entry.duration ?? null,
       });
+      inserted = true;
 
       if (file) {
         const thumbKey = `thumbnails/${orgId}/${serverId}.webp`;
@@ -77,31 +86,22 @@ export async function processImport(
           Body: file.buffer,
           ContentType: file.mimeType || THUMBNAIL_CT,
         }));
-        // Update with thumbnailKey + correct mime
-        const { updateAsset } = await import('../repositories/assets.repo.js');
         await updateAsset(orgId, serverId, { thumbnailKey: thumbKey, mimeType: file.mimeType || 'image/webp' });
-        // Fire-and-forget a real sharp pipeline so we get a clean WebP and any
-        // missing width/height. If there's no original, this will mark the
-        // asset as failed — that's OK for the MVP because the user re-uploads
-        // originals later.
-        const refreshed = await (await import('../repositories/assets.repo.js')).findAssetById(orgId, serverId);
-        if (refreshed) {
-          // Pass the uploaded thumbnail bytes as a placeholder object
-          // by writing them to the objectKey first; the thumbnail service
-          // expects an existing original.
-          await s3.send(new PutObjectCommand({
-            Bucket: BUCKET,
-            Key: objectKey,
-            Body: file.buffer,
-            ContentType: file.mimeType || THUMBNAIL_CT,
-          }));
-          void generateThumbnailForAsset(refreshed);
-        }
       }
 
       imported.push({ clientId: entry.clientId, serverId, name: entry.name });
     } catch (err) {
-      logger.error({ err, clientId: entry.clientId }, 'import: failed to insert asset');
+      logger.error({ err, clientId: entry.clientId, serverId }, 'import: failed to process asset');
+      if (inserted) {
+        try {
+          await deleteAssetHard(orgId, serverId);
+        } catch (rollbackErr) {
+          logger.error(
+            { err: rollbackErr, clientId: entry.clientId, serverId },
+            'import: rollback deleteAssetHard failed',
+          );
+        }
+      }
       skipped.push({ clientId: entry.clientId, reason: 'insert failed' });
     }
   }

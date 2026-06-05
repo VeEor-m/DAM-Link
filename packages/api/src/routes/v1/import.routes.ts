@@ -64,22 +64,25 @@ export async function registerImportRoutes(app: App): Promise<void> {
       },
     },
     async (req) => {
-      const manifestField = await req.file();
-      if (!manifestField || manifestField.fieldname !== 'manifest') {
-        throw new AppError(400, 'MANIFEST_MISSING', 'multipart field "manifest" (JSON) is required');
-      }
-      const manifestBuf = await manifestField.toBuffer();
-      let manifest: unknown;
-      try {
-        manifest = JSON.parse(manifestBuf.toString('utf8'));
-      } catch {
-        throw new AppError(400, 'MANIFEST_INVALID_JSON', 'manifest field is not valid JSON');
-      }
-
+      // Single-pass over the multipart stream. The manifest field and the
+      // thumb_* file fields may arrive in any order, so we must not grab
+      // the manifest with `req.file()` first.
       const files: ImportedFile[] = [];
-      let totalBytes = manifestBuf.length;
+      let manifestStr: string | null = null;
+      let totalBytes = 0;
+
       for await (const part of req.parts()) {
-        if (part.type === 'file' && part.fieldname.startsWith('thumb_')) {
+        if (part.type === 'field' && part.fieldname === 'manifest') {
+          // First wins; ignore duplicates (a client bug, but we still need
+          // to drain the rest of the stream).
+          if (manifestStr === null) {
+            manifestStr = String(part.value);
+            totalBytes += Buffer.byteLength(manifestStr, 'utf8');
+            if (totalBytes > MAX_TOTAL_BYTES) {
+              throw new AppError(413, 'IMPORT_TOO_LARGE', 'Total import size exceeds 50MB');
+            }
+          }
+        } else if (part.type === 'file' && part.fieldname.startsWith('thumb_')) {
           const buf = await part.toBuffer();
           totalBytes += buf.length;
           if (totalBytes > MAX_TOTAL_BYTES) {
@@ -92,6 +95,16 @@ export async function registerImportRoutes(app: App): Promise<void> {
             buffer: buf,
           });
         }
+      }
+
+      if (manifestStr === null) {
+        throw new AppError(400, 'MANIFEST_MISSING', 'multipart field "manifest" (JSON) is required');
+      }
+      let manifest: unknown;
+      try {
+        manifest = JSON.parse(manifestStr);
+      } catch {
+        throw new AppError(400, 'MANIFEST_INVALID_JSON', 'manifest field is not valid JSON');
       }
 
       const result = await processImport(req.orgContext!.org.id, req.user!.id, manifest, files);
