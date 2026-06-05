@@ -1,0 +1,162 @@
+.card {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition:
+    border-color var(--motion-fast) var(--easing-standard),
+    transform var(--motion-fast) var(--easing-standard);
+}
+
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--color-border-primary);
+  }
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-border-info);
+  outline-offset: 2px;
+}
+
+.card.selected {
+  border-color: var(--color-border-info);
+  border-width: 1.5px;
+}
+
+.thumb {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  background: var(--color-background-tertiary);
+  position: relative;
+  overflow: hidden;
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.badge {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  padding: 1px 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1;
+}
+
+.favIcon {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  color: var(--color-star);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* When a multi-select checkbox is present, shift the fav icon to its
+   right so the two don't overlap. The checkbox is 18px + 4px gap = 22px
+   from the left edge. */
+.hasCheckbox .favIcon {
+  left: calc(var(--space-2) + 22px);
+}
+
+.checkbox {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  color: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition:
+    background var(--motion-fast) var(--easing-standard),
+    border-color var(--motion-fast) var(--easing-standard),
+    color var(--motion-fast) var(--easing-standard);
+}
+
+.checkbox:hover {
+  background: var(--color-background-primary);
+  border-color: var(--color-border-primary);
+}
+
+.checkbox.checked {
+  background: var(--color-border-info);
+  border-color: var(--color-border-info);
+  color: var(--color-text-on-info);
+}
+
+.favCorner {
+  position: absolute;
+  bottom: 26px;
+  right: var(--space-2);
+  color: var(--color-star);
+  display: inline-flex;
+}
+
+/* T2: always-visible kebab in the top-right of the thumbnail. Wrapped
+   in a span so its own button-click doesn't bubble up to the card. */
+.kebabWrap {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 2;
+  /* Offset to clear the format badge. */
+  margin-right: 36px;
+}
+
+.kebab {
+  width: 22px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.meta {
+  padding: var(--space-2) var(--space-3);
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}

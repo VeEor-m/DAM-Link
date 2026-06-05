@@ -1,0 +1,75 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+}
+
+.toolbar {
+  flex: 0 0 auto;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.body {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  flex: 0 0 var(--layout-sidebar-width);
+  border-right: 0.5px solid var(--color-border-tertiary);
+  padding: var(--space-5) 0;
+  overflow-y: auto;
+}
+
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.detail {
+  flex: 0 0 var(--layout-detail-width);
+  border-left: 0.5px solid var(--color-border-tertiary);
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+
+/* ── Phone (≤640px): hide sidebar + detail slots, only main is visible.
+   The parent App.tsx renders the sidebar inside a Drawer and the detail
+   inside a BottomSheet on phone/tablet. CSS hides the slot duplicates. */
+body[data-viewport="phone"] .body {
+  display: flex;
+}
+body[data-viewport="phone"] .sidebar,
+body[data-viewport="phone"] .detail {
+  display: none;
+}
+
+/* ── Tablet (641–1023px): keep main + a 40% side detail; sidebar in Drawer. */
+body[data-viewport="tablet"] .sidebar {
+  display: none;
+}
+body[data-viewport="tablet"] .detail {
+  flex: 0 0 40%;
+}
+
+/* ── Desktop (1024–1280px): the original 3-pane. No overrides needed. */
+
+/* ── Wide (>1280px): wider sidebar + wider detail + bigger grid cards. */
+body[data-viewport="wide"] .sidebar {
+  flex-basis: var(--layout-sidebar-width-wide);
+}
+body[data-viewport="wide"] .detail {
+  flex-basis: var(--layout-detail-width-wide);
+}

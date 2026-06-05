@@ -1,0 +1,8 @@
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-md);
+}

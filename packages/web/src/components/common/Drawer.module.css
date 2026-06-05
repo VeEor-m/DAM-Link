@@ -1,0 +1,45 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--color-background-overlay);
+  z-index: 1000;
+  display: flex;
+  animation: drawer-fade var(--motion-normal) var(--easing-standard);
+}
+
+.panel {
+  position: relative;
+  background: var(--color-background-primary);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  transform: translateX(0);
+  animation-duration: var(--motion-normal);
+  animation-timing-function: var(--easing-standard);
+  animation-fill-mode: forwards;
+}
+
+.panel[data-side="left"] {
+  animation-name: drawer-slide-left;
+}
+
+.panel[data-side="right"] {
+  margin-left: auto;
+  animation-name: drawer-slide-right;
+}
+
+@keyframes drawer-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawer-slide-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawer-slide-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}

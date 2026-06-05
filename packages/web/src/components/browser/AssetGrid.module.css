@@ -1,0 +1,37 @@
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--layout-grid-min-card), 1fr)
+  );
+  gap: var(--space-4);
+}
+
+/* Wide tier (>1280px): bigger grid cards per spec §4 decision #5 (W3). */
+body[data-viewport="wide"] .grid {
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--layout-grid-min-card-wide), 1fr)
+  );
+}
