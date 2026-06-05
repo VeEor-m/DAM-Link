@@ -1,0 +1,60 @@
+app = "dam-link-api"
+primary_region = "iad"
+kill_signal = "SIGINT"
+kill_timeout = "10s"
+
+[build]
+  # GHCR image built by .github/workflows/deploy.yml.
+  image = "ghcr.io/dam-link/dam-link-api:latest"
+
+[env]
+  NODE_ENV = "production"
+  LOG_LEVEL = "info"
+  API_PORT = "3000"
+  API_HOST = "0.0.0.0"
+  # Secrets (DATABASE_URL, S3_*, SESSION_COOKIE_SECRET, TURNSTILE_*, SENTRY_DSN)
+  # are set with `fly secrets set`, NOT in this file.
+
+[experimental]
+  # Allow pnpm-style builds if we switch from `image` to `dockerfile`.
+  auto_rollback = true
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+  processes = ["app"]
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+  [[services.http_checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "get"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
