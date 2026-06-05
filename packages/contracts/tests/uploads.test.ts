@@ -70,6 +70,30 @@ describe('InitiateUploadInputSchema', () => {
       InitiateUploadInputSchema.parse({ ...validInitiateInput, filename: '' }),
     ).toThrow();
   });
+
+  it('rejects filename longer than 255 chars', () => {
+    expect(() =>
+      InitiateUploadInputSchema.parse({ ...validInitiateInput, filename: 'a'.repeat(256) }),
+    ).toThrow();
+  });
+
+  it('accepts size at the MAX_FILE_SIZE_BYTES cap', () => {
+    expect(() =>
+      InitiateUploadInputSchema.parse({ ...validInitiateInput, size: MAX_FILE_SIZE_BYTES }),
+    ).not.toThrow();
+  });
+
+  it('rejects empty format', () => {
+    expect(() =>
+      InitiateUploadInputSchema.parse({ ...validInitiateInput, format: '' }),
+    ).toThrow();
+  });
+
+  it('rejects format longer than 16 chars', () => {
+    expect(() =>
+      InitiateUploadInputSchema.parse({ ...validInitiateInput, format: 'a'.repeat(17) }),
+    ).toThrow();
+  });
 });
 
 describe('InitiateUploadResponseSchema', () => {
