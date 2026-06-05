@@ -80,3 +80,24 @@ curl http://localhost:3000/api/v1/auth/me -H "cookie: dam_session=<COOKIE_VALUE>
 - Implementation plans: `docs/superpowers/plans/`
 - Coding standards: `docs/coding-standards.md`
 - Deployment guide: `docs/deployment.md` (Plan 9)
+
+## Deployment
+
+The API is containerised and ships via GitHub Actions to Fly.io. Cloudflare R2 stores objects, Neon hosts Postgres, and Sentry collects errors.
+
+Full guide: [`docs/deployment.md`](docs/deployment.md).
+
+Quick reference:
+
+```bash
+# Local prod-simulation
+pnpm prod:up
+curl -s http://localhost:3000/healthz
+pnpm prod:down
+
+# Deploy
+git push origin main   # CI builds, pushes to GHCR, deploys via flyctl
+
+# Smoke check against production
+BASE_URL=https://api.dam-link.example pnpm --filter @dam-link/api exec ./scripts/smoke-prod.sh
+```
