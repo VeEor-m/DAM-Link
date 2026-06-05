@@ -9,7 +9,8 @@ import {
   IconSortAscending,
   IconSortDescending,
 } from '@tabler/icons-react';
-import type { SortDir, SortKey } from '../../state/types';
+import type { Asset, SortDir, SortKey } from '../../state/types';
+import { ExportButton } from './ExportButton';
 import styles from './Toolbar.module.css';
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
@@ -37,6 +38,9 @@ interface ToolbarProps {
   sortDir: SortDir;
   /** Called when the user picks a new sort key or flips direction. */
   onSortChange: (s: { sortKey: SortKey; sortDir: SortDir }) => void;
+  /** Full asset list — passed to <ExportButton /> for the localStorage
+   *  migration export. Excludes trashed items inside the button. */
+  assets: Asset[];
 }
 
 export function Toolbar({
@@ -52,6 +56,7 @@ export function Toolbar({
   sortKey,
   sortDir,
   onSortChange,
+  assets,
 }: ToolbarProps) {
   return (
     <div
@@ -175,6 +180,7 @@ export function Toolbar({
           <IconUpload size={16} aria-hidden="true" />
           <span>上传</span>
         </button>
+        <ExportButton assets={assets} />
       </div>
     </div>
   );

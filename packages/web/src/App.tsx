@@ -352,6 +352,7 @@ export default function App() {
             onSortChange={({ sortKey, sortDir }) =>
               dispatch({ type: 'SET_SORT', sortKey, sortDir })
             }
+            assets={state.assets}
           />
         }
         sidebar={

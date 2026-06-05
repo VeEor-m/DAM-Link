@@ -18,6 +18,7 @@ function makeProps(
     sortKey: 'date' as SortKey,
     sortDir: 'desc' as const,
     onSortChange: vi.fn(),
+    assets: [],
     ...overrides,
   };
 }
