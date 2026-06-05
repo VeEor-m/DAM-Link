@@ -183,11 +183,12 @@ function buildWhereClause(args: AssetListArgs): SQL | undefined {
   return conds.length > 0 ? and(...conds) : undefined;
 }
 
-function buildOrderBy(sort: AssetListArgs['sort']) {
-  const direction = sort?.endsWith(':asc') ? 'asc' : 'desc';
+function buildOrderBy(sort: AssetListArgs['sort']): SQL[] {
+  const isAsc = sort?.endsWith(':asc') ?? false;
   const col = sort?.split(':')[0];
   const primary = col === 'name' ? assets.name : col === 'size' ? assets.size : assets.uploadedAt;
-  return [sql`${primary} ${sql.raw(direction)}`, sql`${assets.id} ${sql.raw(direction)}`];
+  const dir = isAsc ? asc : desc;
+  return [dir(primary), dir(assets.id)];
 }
 
 export async function listAssets(args: AssetListArgs): Promise<Asset[]> {
@@ -288,11 +289,13 @@ export function decodeCursor(cursor: string): { uploadedAt: Date; id: string } |
     const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
     const [ts, id] = decoded.split('|');
     if (!ts || !id) return null;
-    return { uploadedAt: new Date(ts), id };
+    const uploadedAt = new Date(ts);
+    if (Number.isNaN(uploadedAt.getTime())) return null;
+    return { uploadedAt, id };
   } catch {
     return null;
   }
 }
 
 // Re-export unused imports to avoid TS warnings.
-export { ne, lte, asc, desc };
+export { ne, lte };
