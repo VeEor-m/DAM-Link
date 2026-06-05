@@ -2,6 +2,7 @@ import { AppError } from '../plugins/error-handler.js';
 import { newId } from '../lib/ids.js';
 import { presignPut, s3, BUCKET } from '../lib/s3.js';
 import { insertAsset, updateAsset, findAssetById } from '../repositories/assets.repo.js';
+import { enqueueThumbnail } from './thumbnails.service.js';
 import type {
   InitiateUploadInput,
   InitiateUploadResponse,
@@ -98,8 +99,9 @@ export async function finalizeUpload(
     duration: meta.duration ?? existing.duration,
   });
 
-  // Thumbnail generation runs in Plan 6 and uses a fire-and-forget
-  // pattern; the asset transitions to ready first so the user can
-  // see it in the browser immediately.
+  // Fetch the freshly-updated row so the thumbnail job has the latest
+  // status ('ready'), width, and height.
+  const refreshed = await findAssetById(orgId, assetId);
+  if (refreshed) enqueueThumbnail(refreshed);
   return { id: updated.id, status: 'ready' };
 }
