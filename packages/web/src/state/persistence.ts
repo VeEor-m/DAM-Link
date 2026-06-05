@@ -1,60 +1,67 @@
-import type { AppState } from './types';
-import { initialUI } from './initialUI';
+import { me } from '../api/auth.js';
+import { listMyOrgs } from '../api/orgs.js';
+import { listAssets, sidebarCounts } from '../api/assets.js';
+import type { AppState, UIState } from './types.js';
 
-export const STORAGE_KEY = 'dam-link-state-v1';
-const DEBOUNCE_MS = 300;
-
-let pending: ReturnType<typeof setTimeout> | null = null;
-let lastValue: AppState | null = null;
-
-function isAppState(x: unknown): x is AppState {
-  if (!x || typeof x !== 'object') return false;
-  const s = x as Record<string, unknown>;
-  if (!Array.isArray(s.assets)) return false;
-  if (!s.ui || typeof s.ui !== 'object') return false;
-  return true;
-}
-
-export function loadState(): AppState | null {
+/**
+ * Hydrate AppState from the API. Returns null if the user is not logged in.
+ * The returned AppState has the user's first org as the active selection;
+ * the UI can offer an org-picker.
+ */
+export async function loadState(): Promise<AppState | null> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isAppState(parsed)) return null;
-    // Migration: a persisted state from a previous version may be
-    // missing fields that were added later (e.g. selectedIds in T1,
-    // sortKey/sortDir in T6). Merge `initialUI` defaults underneath
-    // the loaded ui so missing fields fall back to the default
-    // instead of crashing the app. Persisted values win where present.
+    const meRes = await me();
+    if (!meRes.user) return null;
+    const orgs = await listMyOrgs();
+    const firstOrg = orgs[0];
+    if (!firstOrg) {
+      return { assets: [], ui: defaultUI() };
+    }
+    const { items } = await listAssets(firstOrg.org.id, { limit: 200, sort: 'uploadedAt:desc', dateBucket: 'all' });
+    void (await sidebarCounts(firstOrg.org.id)); // warm the cache; the UI re-fetches on demand
     return {
-      assets: parsed.assets,
-      ui: {
-        ...initialUI,
-        ...(parsed.ui as object),
-        // Nested merge: the `filter` object can be partial too, so
-        // fall back to the default filter sub-fields where missing.
-        filter: {
-          ...initialUI.filter,
-          ...((parsed.ui as { filter?: object }).filter ?? {}),
-        },
-      },
+      assets: items.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        format: a.format,
+        size: a.size,
+        uploadedAt: a.uploadedAt,
+        uploadedBy: a.uploadedBy,
+        tags: a.tags,
+        favorite: a.favorite,
+        deletedAt: a.deletedAt,
+        width: a.width ?? undefined,
+        height: a.height ?? undefined,
+        duration: a.duration ?? undefined,
+        previewDataUrl: a.thumbnailKey ? null : undefined,
+        // Thumbnail URL is dynamic and lives on the API response. The UI reads it
+        // from the asset list response (which includes presigned URLs).
+        _thumbnailUrl: (a as { thumbnailUrl?: string | null }).thumbnailUrl ?? null,
+      })) as AppState['assets'],
+      ui: defaultUI(),
     };
   } catch {
     return null;
   }
 }
 
-export function saveState(state: AppState): void {
-  lastValue = state;
-  if (pending) return;
-  pending = setTimeout(() => {
-    try {
-      if (lastValue) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(lastValue));
-      }
-    } catch {
-      // quota exceeded — swallow
-    }
-    pending = null;
-  }, DEBOUNCE_MS);
+function defaultUI(): UIState {
+  return {
+    searchQuery: '',
+    selection: { kind: 'all' },
+    viewMode: 'grid',
+    selectedAssetId: null,
+    filterPanelOpen: false,
+    uploadDialogOpen: false,
+    filter: { typeFilter: [], formatFilter: [], sizeBucket: null, dateBucket: 'all', uploaderFilter: [] },
+    selectedIds: [],
+    sortKey: 'date',
+    sortDir: 'desc',
+  };
+}
+
+/** No-op for the API-backed store; the server persists. */
+export function saveState(_state: AppState): void {
+  // intentional no-op
 }
