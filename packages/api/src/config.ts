@@ -23,7 +23,7 @@ const ConfigSchema = z.object({
 
   SESSION_COOKIE_NAME: z.string().default('dam_session'),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(30),
-  SESSION_COOKIE_SECRET: z.string().min(16),
+  SESSION_COOKIE_SECRET: z.string().min(1),
 
   SENTRY_DSN: z
     .string()
@@ -62,7 +62,31 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .join('\n');
     throw new Error(`Invalid configuration:\n${issues}`);
   }
-  cached = result.data;
+  const cfg = result.data;
+
+  // Production-only rules. Fail-fast on dangerous misconfigurations.
+  if (cfg.NODE_ENV === 'production') {
+    const errors: string[] = [];
+    if (cfg.SESSION_COOKIE_SECRET === 'change-me-32-bytes-of-random-data') {
+      errors.push('SESSION_COOKIE_SECRET must be changed from the default in production');
+    }
+    if (cfg.SESSION_COOKIE_SECRET.length < 32) {
+      errors.push('SESSION_COOKIE_SECRET must be at least 32 characters in production');
+    }
+    if (!cfg.TURNSTILE_SECRET_KEY) {
+      errors.push('TURNSTILE_SECRET_KEY is required in production (bot protection)');
+    }
+    if (cfg.LOG_LEVEL === 'trace' || cfg.LOG_LEVEL === 'debug') {
+      errors.push(`LOG_LEVEL=${cfg.LOG_LEVEL} is not allowed in production`);
+    }
+    if (errors.length > 0) {
+      throw new Error(
+        `Unsafe production configuration:\n${errors.map((e) => `  - ${e}`).join('\n')}`,
+      );
+    }
+  }
+
+  cached = cfg;
   return cached;
 }
 

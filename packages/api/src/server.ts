@@ -71,6 +71,17 @@ async function main() {
   const config = loadConfig();
   const app = await buildApp();
 
+  app.log.info(
+    {
+      nodeEnv: config.NODE_ENV,
+      apiPublicUrl: config.API_PUBLIC_URL,
+      webOrigin: config.WEB_ORIGIN,
+      sentryEnabled: !!config.SENTRY_DSN,
+      sentryRelease: process.env.GIT_COMMIT ?? 'dev',
+    },
+    'boot summary',
+  );
+
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down');
     await app.close();
