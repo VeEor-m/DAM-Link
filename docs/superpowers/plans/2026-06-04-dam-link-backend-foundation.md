@@ -10,7 +10,7 @@
 
 ---
 
-## Plan 1 of 9 — what's in scope
+## Plan 1 of 9 — Foundation
 
 This plan covers everything up to "I can run the API, it says /healthz is OK, the database has all the tables, and I can write integration tests." Subsequent plans add routes and features on top.
 

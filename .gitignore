@@ -1,2 +1,27 @@
-.worktrees/
 node_modules/
+dist/
+.turbo/
+*.log
+.env
+.env.local
+.env.*.local
+coverage/
+.vitest-cache/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/settings.json
+
+# build artifacts
+packages/*/dist/
+packages/*/.tsbuildinfo
+
+# drizzle
+packages/api/drizzle/meta/_journal.json.bak
+
+# local data
+.docker-data/
+
+# worktrees
+.worktrees/
