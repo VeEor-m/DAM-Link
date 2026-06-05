@@ -1,108 +1,108 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal } from '../common/Modal';
 import { DropZone } from './DropZone';
-import { parseFile } from '../../utils/uploadParser';
+import { useUpload } from '../../hooks/useUpload';
+import { listMyOrgs } from '../../api/orgs.js';
 import { formatSize } from '../../utils/format';
-import type { Asset } from '../../state/types';
 import styles from './UploadDialog.module.css';
 
 interface UploadDialogProps {
   open: boolean;
   onClose: () => void;
-  onAdd: (assets: Asset[]) => void;
 }
 
-interface PendingRow {
-  name: string;
-  size: number;
-  status: 'pending' | 'ok' | 'error';
-  error?: string;
-  asset?: Asset;
+export function UploadDialog({ open, onClose }: UploadDialogProps) {
+  const [orgId, setOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!open) return;
+    listMyOrgs()
+      .then((orgs) => {
+        if (cancelled) return;
+        setOrgId(orgs[0]?.org.id ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOrgId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  if (!orgId) {
+    return (
+      <Modal open={open} title="上传资产" onClose={onClose}>
+        <div className={styles.preview}>正在准备…</div>
+      </Modal>
+    );
+  }
+
+  return <UploadDialogBody orgId={orgId} onClose={onClose} />;
 }
 
-export function UploadDialog({ open, onClose, onAdd }: UploadDialogProps) {
-  const [rows, setRows] = useState<PendingRow[]>([]);
+interface BodyProps {
+  orgId: string;
+  onClose: () => void;
+}
+
+function UploadDialogBody({ orgId, onClose }: BodyProps) {
+  const { items, uploadMany } = useUpload(orgId);
 
   async function handleFiles(files: File[]) {
-    const newRows: PendingRow[] = files.map((f) => ({
-      name: f.name,
-      size: f.size,
-      status: 'pending',
-    }));
-    setRows((prev) => [...prev, ...newRows]);
-    for (let i = 0; i < files.length; i++) {
-      try {
-        const asset = await parseFile(files[i]);
-        setRows((prev) =>
-          prev.map((r) =>
-            r.name === files[i].name && r.status === 'pending'
-              ? { ...r, status: 'ok', asset }
-              : r,
-          ),
-        );
-      } catch (err) {
-        setRows((prev) =>
-          prev.map((r) =>
-            r.name === files[i].name && r.status === 'pending'
-              ? { ...r, status: 'error', error: String(err) }
-              : r,
-          ),
-        );
-      }
-    }
+    await uploadMany(files);
   }
 
-  function commit() {
-    const ok = rows.filter((r) => r.status === 'ok' && r.asset).map((r) => r.asset!);
-    if (ok.length > 0) onAdd(ok);
-    setRows([]);
-    onClose();
-  }
-
-  function cancel() {
-    setRows([]);
-    onClose();
-  }
-
-  const allDone = rows.length === 0 || rows.every((r) => r.status !== 'pending');
-  const anyOk = rows.some((r) => r.status === 'ok');
+  const inProgress = items.some(
+    (i) => i.status === 'uploading' || i.status === 'finalizing' || i.status === 'queued',
+  );
+  const allDone = items.length === 0 || items.every((i) => i.status === 'done' || i.status === 'error');
+  const anyOk = items.some((i) => i.status === 'done');
 
   return (
     <Modal
-      open={open}
+      open
       title="上传资产"
-      onClose={cancel}
+      onClose={onClose}
       footer={
         <>
           <button
             type="button"
             className={styles.secondaryButton}
-            onClick={cancel}
+            onClick={onClose}
+            disabled={inProgress}
           >
             取消
           </button>
           <button
             type="button"
             className={styles.primaryButton}
-            onClick={commit}
+            onClick={onClose}
             disabled={!allDone || !anyOk}
           >
-            添加到资产库
+            完成
           </button>
         </>
       }
     >
       <DropZone onFiles={handleFiles} />
-      {rows.length > 0 && (
+      {items.length > 0 && (
         <div className={styles.preview}>
-          {rows.map((r, i) => (
+          {items.map((i) => (
             <div
-              key={i}
-              className={`${styles.row} ${r.status === 'error' ? styles.error : ''}`}
+              key={i.id}
+              className={`${styles.row} ${i.status === 'error' ? styles.error : ''}`}
             >
-              <span className={styles.name}>{r.name}</span>
-              <span className={styles.size}>{formatSize(r.size)}</span>
-              <span>{r.status === 'pending' ? '…' : r.status === 'ok' ? '✓' : '✗'}</span>
+              <span className={styles.name}>{i.file.name}</span>
+              <span className={styles.size}>{formatSize(i.file.size)}</span>
+              <span>
+                {i.status === 'queued' && '…'}
+                {i.status === 'uploading' && '上传中…'}
+                {i.status === 'finalizing' && '完成中…'}
+                {i.status === 'done' && '✓'}
+                {i.status === 'error' && `✗ ${i.error ?? ''}`}
+              </span>
             </div>
           ))}
         </div>

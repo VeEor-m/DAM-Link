@@ -514,10 +514,6 @@ export default function App() {
       <UploadDialog
         open={state.ui.uploadDialogOpen}
         onClose={closeUpload}
-        onAdd={(assets) => {
-          for (const a of assets) dispatch({ type: 'ADD_ASSET', asset: a });
-          toast.showToast({ message: `已添加 ${assets.length} 个资产`, variant: 'success' });
-        }}
       />
 
       <ShortcutsHelp
