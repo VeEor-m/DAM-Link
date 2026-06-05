@@ -44,8 +44,8 @@ pnpm test:services:down
 
 This project is built incrementally from a series of plans. See `docs/superpowers/plans/`:
 
-1. **Foundation** (this plan) — monorepo, contracts, docker, db schema, /healthz
-2. Auth — register/login/logout, sessions, Turnstile
+1. **Foundation** — monorepo, contracts, docker, db schema, /healthz — tag `foundation-v0.1.0`
+2. **Auth** — register/login/logout, sessions, CSRF, Turnstile — tag `auth-v0.2.0`
 3. Orgs + memberships + RBAC
 4. Assets core — CRUD, soft delete, smart collections, search/filter
 5. Uploads — presigned PUT to S3
@@ -53,6 +53,25 @@ This project is built incrementally from a series of plans. See `docs/superpower
 7. Share links — tokenized public access
 8. Import + frontend integration
 9. Deployment — Dockerfile, CI, Fly.io, R2, rate limiting
+
+### Auth endpoints (Plan 2)
+
+```
+POST /api/v1/auth/register   { email, password, displayName, turnstileToken? } → { data: { user, session } }, Set-Cookie
+POST /api/v1/auth/login      { email, password, turnstileToken? }             → { data: { user, session } }, Set-Cookie
+POST /api/v1/auth/logout                                                           → 204, clears cookie
+GET  /api/v1/auth/me                                                                       → { data: { user, orgs: [] } } (orgs in Plan 3)
+```
+
+Curl exercise (in dev/test, `RATE_LIMIT_DISABLED=true` to avoid the 5/min auth cap):
+
+```bash
+curl -i -X POST http://localhost:3000/api/v1/auth/register \
+  -H 'content-type: application/json' \
+  -d '{"email":"manual@example.com","password":"hunter2pass","displayName":"Manual"}'
+# Copy the Set-Cookie value, then:
+curl http://localhost:3000/api/v1/auth/me -H "cookie: dam_session=<COOKIE_VALUE>"
+```
 
 ## Documentation
 

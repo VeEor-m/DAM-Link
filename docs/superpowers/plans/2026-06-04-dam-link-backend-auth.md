@@ -1,5 +1,7 @@
 # DAM-Link Backend — Auth Implementation Plan
 
+> **Status: ✅ Executed** on branch `feat/backend-auth`. **Tag:** `auth-v0.2.0`. 11 commits on top of `foundation-v0.1.0`. 29/29 tests pass. See "Execution record" at the end for deviations, follow-ups, and known issues.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement email+password authentication with server-side sessions in Postgres, HTTP-only cookies, CSRF protection, and Cloudflare Turnstile on register/login. End state: a user can register, log in, log out, and call `GET /api/v1/auth/me` to retrieve their profile.
@@ -1572,3 +1574,56 @@ Plan complete and saved to `D:\DAM-Link-Backend\docs\superpowers\plans\2026-06-0
 2. **Inline Execution** — batched with checkpoints.
 
 Which approach? (We will defer the choice until all plans are written, per the user's instruction.)
+
+---
+
+## Execution record
+
+**Executed:** 2026-06-05, on branch `feat/backend-auth`, in worktree `D:\DAM-Link-Backend\.worktrees\auth`. **Tag:** `auth-v0.2.0`. **Mode:** subagent-driven (one implementer per task, with spec + code review).
+
+### Commits (11)
+
+```
+2603015 test(api): full auth flow integration tests (register, login, logout, me, CSRF)
+a4d7832 test(api): disable rate limit in test env so integration tests can run
+f8f8737 feat(api): auth routes (register, login, logout, me)
+0f42d97 feat(api): auth plugin resolves session cookie to req.user
+e6f0136 feat(api): cookie, csrf (origin check), tiered rate-limit plugins
+e16fcda fix(api): make touches lastSeenAt test robust to Docker↔host clock skew
+cf158fd feat(api): turnstile verification helper with dev-mode skip
+7624755 feat(api): user + session repos and session cookie helpers
+4fee394 feat(api): argon2id password hashing (lib/passwords)
+9253947 chore(api): add argon2, @fastify/cookie, @fastify/rate-limit
+7b0dbff feat(contracts): add auth schemas (password, register, login, me)
+```
+
+### Verification
+
+- `pnpm -r typecheck` — clean
+- `pnpm -r test` — **29/29 pass** (auth 10, sessions 5, health 4, turnstile 4, passwords 5, ping 1)
+- `pnpm -r build` — both packages compile
+- Curl: register → /me (200) → logout (204) → /me (401) — full flow exercised
+
+### Spec deviations (all justified engineering decisions)
+
+1. **Plugin/route signatures use `App` (not `FastifyInstance`)** per the existing `App` type alias (gotcha: Fastify 5 + Pino logger type variance).
+2. **Response schemas are plain JSON Schema, not Zod** per the `FST_ERR_SCH_SERIALIZATION_BUILD` gotcha.
+3. **`lib/sessions.ts` adds `import '@fastify/cookie'`** for `req.cookies` type augmentation.
+4. **`schema.ts` exports `NewSession`** — was missing from Plan 1; added in Task 4 to satisfy the new repo.
+5. **`purgeExpiredSessions` uses `.returning({ id }).length`** — `result.rowCount` is undefined on the postgres-js + Drizzle combo, so the spec's `result.rowCount ?? 0` would have always returned 0.
+6. **Added `plugins/zod-validator.ts` + modified `server.ts`** to handle Zod body schemas (the spec assumed `fastify-type-provider-zod` would work, but `zod@3.23.8` is incompatible with `zod-to-json-schema@3.25.2` which requires `zod/v3` from `zod@3.24+`).
+7. **Added `RATE_LIMIT_DISABLED` config flag** to bypass the 5/min auth rate limit in test env (otherwise test 5+ fail with 429).
+8. **Fixed `touches lastSeenAt` test for Docker↔host clock skew** — seeded with explicit old timestamp + assert close to `Date.now()` rather than direct before/after comparison.
+
+### Spec gaps (left for follow-up, not blocking)
+
+- `MeResponseSchema.orgs[].role` re-inlines `z.enum(['owner','editor','viewer'])` instead of using `RoleSchema` from `common.ts` — Plan 3 should deduplicate.
+- `PublicSessionSchema.id` is `z.string()` with no min length — should be `.min(32)` to match token entropy.
+- `PublicUserSchema.displayName` is unconstrained, but `RegisterInputSchema.displayName` is `.min(1).max(80)` — `/me` can return a value the register endpoint would reject.
+- Email is lowercased in the service layer (`registerUser`/`loginUser`), not in the validation schema. Acceptable but should be documented.
+- No round-trip tests for response schemas (`AuthSuccessSchema`, `PublicUserSchema`, `PublicSessionSchema`, `MeResponseSchema`) — only type-level validation. Plan 8/9 follow-up.
+
+### Known issues / follow-ups
+
+- **Zod band-aid:** `plugins/zod-validator.ts` is a no-op validator compiler that defers body parsing to the handler. Long-term: upgrade `zod` to 3.24+ or pin `zod-to-json-schema` to a 3.23-compatible version, then wire up `fastify-type-provider-zod` properly.
+- **Rate limit interaction:** the 5/min auth cap protects against credential stuffing in production. In integration tests it's bypassed via `RATE_LIMIT_DISABLED=true` (set only in `TEST_ENV`).
