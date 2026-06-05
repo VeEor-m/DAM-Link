@@ -17,6 +17,7 @@ import { registerOrgContext } from './plugins/org-context.js';
 import { registerZodValidator } from './plugins/zod-validator.js';
 import { registerAuthRoutes } from './routes/v1/auth.routes.js';
 import { registerOrgsRoutes } from './routes/v1/orgs.routes.js';
+import { registerAssetRoutes } from './routes/v1/assets.routes.js';
 import { registerMembersRoutes } from './routes/v1/members.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
@@ -49,6 +50,7 @@ export async function buildApp(): Promise<App> {
   await registerOrgContext(app);
   await registerOrgsRoutes(app);
   await registerMembersRoutes(app);
+  await registerAssetRoutes(app);
   await registerPingRoute(app);
 
   return app;
