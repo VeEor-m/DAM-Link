@@ -22,6 +22,7 @@ import { registerMembersRoutes } from './routes/v1/members.routes.js';
 import { registerUploadRoutes } from './routes/v1/uploads.routes.js';
 import { registerShareLinkRoutes } from './routes/v1/share-links.routes.js';
 import { registerPublicShareRoutes } from './routes/v1/public-share.routes.js';
+import { registerImportRoutes } from './routes/v1/import.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
@@ -57,6 +58,7 @@ export async function buildApp(): Promise<App> {
   await registerUploadRoutes(app);
   await registerShareLinkRoutes(app);
   await registerPublicShareRoutes(app);
+  await registerImportRoutes(app);
   await registerPingRoute(app);
 
   return app;
