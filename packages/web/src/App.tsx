@@ -15,6 +15,7 @@ import { BottomSheet } from './components/common/BottomSheet';
 import { BatchActionBar } from './components/batch/BatchActionBar';
 import { useConfirm } from './components/common/ConfirmDialog';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { LoginScreen } from './components/auth/LoginScreen';
 import { buildAssetRowMenuItems } from './components/browser/AssetRowMenu';
 import { useStore } from './hooks/useStore';
 import { useDebounce } from './hooks/useDebounce';
@@ -31,6 +32,8 @@ import {
 import { copyToClipboard } from './utils/clipboard';
 import { downloadAsset } from './utils/download';
 import { deleteAsset, emptyTrash, permanentDelete, restoreAsset } from './state/assetOps';
+import { me as apiMe } from './api/auth.js';
+import { ApiError } from './api/client.js';
 import type { KeymapEntry } from './state/keymap';
 import type { Asset, SidebarSelection } from './state/types';
 import styles from './App.module.css';
@@ -47,6 +50,25 @@ export default function App() {
   const viewport = useViewport();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Auth gate: null = checking, true = authed, false = not authed.
+  // We call me() on mount per the Plan 8 spec; on 401 we show LoginScreen,
+  // otherwise the full UI. This is separate from the store's own loadState()
+  // hydration (which gates rendering of App at all) because the store does
+  // not currently expose an auth flag.
+  const [bootstrapped, setBootstrapped] = useState<boolean | null>(null);
+  useEffect(() => {
+    apiMe()
+      .then(() => setBootstrapped(true))
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 401) {
+          setBootstrapped(false);
+        } else {
+          // Network/other failure: treat as not authed and let LoginScreen
+          // surface a real error message if the user tries to log in.
+          setBootstrapped(false);
+        }
+      });
+  }, []);
 
   // Edge E1: phone sheet persists across selections (content swaps).
   // Edge E2: phone drawer closes on Sidebar selection.
@@ -329,6 +351,13 @@ export default function App() {
       type: 'HYDRATE_STATE',
       state: { assets: MOCK_ASSETS, ui: initialUI },
     });
+  }
+
+  if (bootstrapped === null) {
+    return <div style={{ padding: 32 }}>Loading…</div>;
+  }
+  if (!bootstrapped) {
+    return <LoginScreen onSuccess={() => setBootstrapped(true)} />;
   }
 
   return (
