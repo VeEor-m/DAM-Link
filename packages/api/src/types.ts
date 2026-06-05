@@ -1,6 +1,7 @@
 // Augment FastifyRequest with our custom context. Populated by plugins later.
 import 'fastify';
-import type { User } from './db/schema.js';
+import type { User, Org } from './db/schema.js';
+import type { Role } from '@dam-link/contracts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -8,6 +9,8 @@ declare module 'fastify' {
     requestId: string;
     /** Populated by auth plugin. Null when the request is unauthenticated. */
     user: User | null;
+    /** Populated by the org-context plugin for /orgs/:orgId/... routes. */
+    orgContext: { org: Org; role: Role } | null;
   }
 }
 
