@@ -46,3 +46,7 @@ export async function closeS3(): Promise<void> {
   s3?.destroy();
   s3 = null;
 }
+
+export function getTestS3Client(): S3Client {
+  return getClient();
+}
