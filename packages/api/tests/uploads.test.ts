@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import sharp from 'sharp';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './helpers/build-app.js';
 import { truncateAllTables, closeDb } from './helpers/db.js';
@@ -68,13 +69,19 @@ describe('upload flow', () => {
     const orgId = await createOrgViaApi(app, session, 'Org');
 
     // 1. Initiate
+    // The finalize flow fires a fire-and-forget thumbnail job, so the test
+    // body must be a real image — otherwise the background sharp call rejects
+    // and the catch block marks the asset 'failed' before our GET runs.
+    const body = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).png().toBuffer();
     const init = await app.inject({
       method: 'POST', url: `/api/v1/orgs/${orgId}/uploads`,
       headers: { cookie: `${COOKIE}=${session}` },
       payload: {
         filename: 'cat.png',
         mimeType: 'image/png',
-        size: 11,
+        size: body.length,
         type: 'image',
         format: 'PNG',
       },
@@ -86,7 +93,6 @@ describe('upload flow', () => {
     expect(objectKey).toMatch(new RegExp(`^originals/${orgId}/${assetId}/cat\\.png$`));
 
     // 2. PUT to S3
-    const body = Buffer.from('hello world');
     await directPut(uploadUrl, body, 'image/png', body.length);
 
     // 3. Finalize
