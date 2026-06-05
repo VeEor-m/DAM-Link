@@ -8,6 +8,7 @@ import {
   loginUser,
   logoutUser,
 } from '../../services/auth.service.js';
+import { listOrgsForUser } from '../../services/orgs.service.js';
 import {
   readSessionCookie,
   setSessionCookie,
@@ -182,11 +183,16 @@ export async function registerAuthRoutes(app: App): Promise<void> {
       if (!req.user) {
         throw new AppError(401, 'UNAUTHENTICATED', 'Not logged in');
       }
-      // orgs filled in by Plan 3
+      const orgs = await listOrgsForUser(req.user.id);
       return {
         data: {
           user: toPublicUser(req.user),
-          orgs: [],
+          orgs: orgs.map(({ org, role }) => ({
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            role,
+          })),
         },
       };
     },

@@ -1,4 +1,5 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
+import type { App } from '../types.js';
 import { AppError } from './error-handler.js';
 import { getOrgContextForUser } from '../services/orgs.service.js';
 import type { Role } from '@dam-link/contracts';
@@ -12,7 +13,7 @@ const ROLE_ORDER: Record<Role, number> = { viewer: 1, editor: 2, owner: 3 };
  * This is the single chokepoint for tenant isolation — every org-scoped route
  * uses it. NEVER access an org's data without going through this.
  */
-export async function registerOrgContext(app: FastifyInstance): Promise<void> {
+export async function registerOrgContext(app: App): Promise<void> {
   app.decorateRequest('orgContext', null);
 
   app.addHook('preHandler', async (req: FastifyRequest) => {

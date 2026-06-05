@@ -13,8 +13,11 @@ import { registerRateLimit } from './plugins/rate-limit.js';
 import { registerCookie } from './plugins/cookie.js';
 import { registerCsrf } from './plugins/csrf.js';
 import { registerAuth } from './plugins/auth.js';
+import { registerOrgContext } from './plugins/org-context.js';
 import { registerZodValidator } from './plugins/zod-validator.js';
 import { registerAuthRoutes } from './routes/v1/auth.routes.js';
+import { registerOrgsRoutes } from './routes/v1/orgs.routes.js';
+import { registerMembersRoutes } from './routes/v1/members.routes.js';
 import { registerPingRoute } from './routes/v1/ping.route.js';
 
 export async function buildApp(): Promise<App> {
@@ -43,6 +46,9 @@ export async function buildApp(): Promise<App> {
   await registerCsrf(app);
   await registerAuth(app);
   await registerAuthRoutes(app);
+  await registerOrgContext(app);
+  await registerOrgsRoutes(app);
+  await registerMembersRoutes(app);
   await registerPingRoute(app);
 
   return app;
