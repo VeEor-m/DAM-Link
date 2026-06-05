@@ -1,9 +1,5 @@
 import type { App } from '../../types.js';
-import { z } from 'zod';
-import {
-  PublicShareInfoSchema,
-  UnlockShareLinkInputSchema,
-} from '@dam-link/contracts';
+import { UnlockShareLinkInputSchema } from '@dam-link/contracts';
 import {
   getPublicShareInfo,
   unlockShareLink,
@@ -12,6 +8,51 @@ import {
 
 const PUBLIC_TIER = { max: 20, timeWindow: '1 minute' };
 
+// JSON-schema response objects (Zod fails on Fastify response schema serialisation).
+// See memory/gotchas.md.
+const AssetTypeEnum = { type: 'string' as const, enum: ['image', 'video', 'document', 'audio'] };
+
+const PublicShareInfoJsonSchema = {
+  type: 'object' as const,
+  properties: {
+    asset: {
+      type: 'object' as const,
+      properties: {
+        id: { type: 'string' as const, format: 'uuid' },
+        name: { type: 'string' as const },
+        type: AssetTypeEnum,
+        format: { type: 'string' as const },
+        size: { type: 'integer' as const, minimum: 0 },
+      },
+      required: ['id', 'name', 'type', 'format', 'size'],
+    },
+    hasPassword: { type: 'boolean' as const },
+    expiresAt: { type: ['string', 'null'] as const, format: 'date-time' },
+    thumbnailUrl: { type: ['string', 'null'] as const, format: 'uri' },
+  },
+  required: ['asset', 'hasPassword', 'expiresAt', 'thumbnailUrl'],
+} as const;
+
+const PublicShareInfoResponseSchema = {
+  type: 'object' as const,
+  properties: { data: PublicShareInfoJsonSchema },
+  required: ['data'],
+} as const;
+
+const DownloadUrlJsonSchema = {
+  type: 'object' as const,
+  properties: {
+    downloadUrl: { type: 'string' as const, format: 'uri' },
+  },
+  required: ['downloadUrl'],
+} as const;
+
+const DownloadUrlResponseSchema = {
+  type: 'object' as const,
+  properties: { data: DownloadUrlJsonSchema },
+  required: ['data'],
+} as const;
+
 export async function registerPublicShareRoutes(app: App): Promise<void> {
   // GET /api/v1/share/:token
   app.get(
@@ -19,7 +60,7 @@ export async function registerPublicShareRoutes(app: App): Promise<void> {
     {
       config: { rateLimit: PUBLIC_TIER },
       schema: {
-        response: { 200: z.object({ data: PublicShareInfoSchema }) },
+        response: { 200: PublicShareInfoResponseSchema },
         tags: ['public-share'],
         summary: 'Get public info for a share link (no auth)',
       },
@@ -38,7 +79,7 @@ export async function registerPublicShareRoutes(app: App): Promise<void> {
       config: { rateLimit: PUBLIC_TIER },
       schema: {
         body: UnlockShareLinkInputSchema,
-        response: { 200: z.object({ data: z.object({ downloadUrl: z.string().url() }) }) },
+        response: { 200: DownloadUrlResponseSchema },
         tags: ['public-share'],
         summary: 'Unlock a password-protected share link',
       },
@@ -58,7 +99,7 @@ export async function registerPublicShareRoutes(app: App): Promise<void> {
       config: { rateLimit: PUBLIC_TIER },
       schema: {
         response: {
-          200: z.object({ data: z.object({ downloadUrl: z.string().url() }) }),
+          200: DownloadUrlResponseSchema,
         },
         tags: ['public-share'],
         summary: 'Get a short-lived download URL (no password)',
