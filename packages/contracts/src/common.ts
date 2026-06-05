@@ -30,7 +30,8 @@ export type AssetStatus = z.infer<typeof AssetStatusSchema>;
 /** Cursor-based pagination input. */
 export const PaginationInputSchema = z.object({
   cursor: z.string().nullish(),
-  limit: z.number().int().min(1).max(200).default(50),
+  // Coerce: query strings send strings, not numbers.
+  limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 export type PaginationInput = z.infer<typeof PaginationInputSchema>;
 
