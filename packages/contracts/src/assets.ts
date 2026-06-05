@@ -86,11 +86,11 @@ export const AssetListQuerySchema = PaginationInputSchema.extend({
     .transform((s) => (s ? s.split(',').filter(Boolean) : undefined))
     .pipe(z.array(z.string().min(1).max(40)).optional()),
   favorite: z
-    .union([z.literal('true'), z.literal('false')])
+    .enum(['true', 'false'])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   inTrash: z
-    .union([z.literal('true'), z.literal('false')])
+    .enum(['true', 'false'])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   sort: z.enum(['uploadedAt:asc', 'uploadedAt:desc', 'name:asc', 'name:desc', 'size:asc', 'size:desc']).default('uploadedAt:desc'),
@@ -104,6 +104,7 @@ export const AssetPageSchema = z.object({
   items: z.array(AssetSchema),
   nextCursor: z.string().nullable(),
 });
+export type AssetPage = z.infer<typeof AssetPageSchema>;
 
 /** Sidebar counts. */
 export const SidebarCountsSchema = z.object({

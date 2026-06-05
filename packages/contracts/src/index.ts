@@ -17,6 +17,5 @@ export {
   OrgContextSchema,
   type OrgContext,
   ListUserOrgsResponseSchema,
-  AssetPaginationInputSchema,
   // AssetPageSchema intentionally omitted — the concrete page schema is re-exported from ./assets.js
 } from './orgs.js';

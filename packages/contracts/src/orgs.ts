@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema, IsoDateTimeSchema, RoleSchema, PaginationInputSchema, PageSchema } from './common.js';
+import { IdSchema, IsoDateTimeSchema, RoleSchema, PageSchema } from './common.js';
 
 /** Org row. */
 export const OrgSchema = z.object({
@@ -69,6 +69,5 @@ export const ListUserOrgsResponseSchema = z.object({
   ),
 });
 
-/** Asset list pagination (re-exported for the asset routes to consume). */
-export const AssetPaginationInputSchema = PaginationInputSchema;
+/** Generic asset list page factory (re-exported for the asset routes to consume). */
 export const AssetPageSchema = <T extends z.ZodTypeAny>(item: T) => PageSchema(item);
