@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "pnpm --filter @dam-link/api dev",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r --if-present --filter !@dam-link/web lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @dam-link/api db:generate",

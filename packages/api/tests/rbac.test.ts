@@ -108,7 +108,7 @@ describe('RBAC matrix', () => {
 
   it('Owner can demote themselves only if another Owner exists', async () => {
     const owner1 = await reg(app, 'o1@example.com');
-    const owner2 = await reg(app, 'o2@example.com');
+    const _owner2 = await reg(app, 'o2@example.com');
     const orgId = await createOrgWith(app, owner1, 'Org');
     await inviteAs(app, owner1, orgId, 'o2@example.com', 'editor');
     // Promote o2 to owner directly

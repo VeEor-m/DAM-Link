@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { initSentry, captureException, _resetSentryForTests } from '../src/lib/sentry.js';
 
 describe('sentry', () => {

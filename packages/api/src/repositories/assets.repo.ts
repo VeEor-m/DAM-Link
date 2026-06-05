@@ -1,4 +1,4 @@
-import { and, eq, gte, ilike, inArray, isNull, isNotNull, lt, lte, ne, or, sql, desc, asc, count, SQL } from 'drizzle-orm';
+import { and, eq, gte, ilike, inArray, isNull, isNotNull, lt, lte, ne, or, sql, desc, asc, count, type SQL } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { assets, type Asset, type NewAsset } from '../db/schema.js';
 import type {
