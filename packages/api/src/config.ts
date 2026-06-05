@@ -39,6 +39,11 @@ const ConfigSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v && v.length > 0 ? v : undefined)),
+
+  RATE_LIMIT_DISABLED: z
+    .string()
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

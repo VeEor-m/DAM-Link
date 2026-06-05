@@ -19,6 +19,7 @@ export const TEST_ENV = {
   SESSION_COOKIE_NAME: 'dam_session_test',
   SESSION_TTL_DAYS: '30',
   SESSION_COOKIE_SECRET: 'test-secret-must-be-at-least-16-chars',
+  RATE_LIMIT_DISABLED: 'true',
 };
 
 export function applyTestEnv(): void {
