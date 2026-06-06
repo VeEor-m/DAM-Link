@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal } from '../common/Modal';
 import { DropZone } from './DropZone';
 import { useUpload } from '../../hooks/useUpload';
-import { listMyOrgs } from '../../api/orgs.js';
+import { listMyOrgs, createOrg } from '../../api/orgs.js';
 import { formatSize } from '../../utils/format';
 import styles from './UploadDialog.module.css';
 
@@ -11,35 +11,117 @@ interface UploadDialogProps {
   onClose: () => void;
 }
 
-export function UploadDialog({ open, onClose }: UploadDialogProps) {
-  const [orgId, setOrgId] = useState<string | null>(null);
+type Phase = 'loading' | 'no-orgs' | 'ready' | 'error';
 
+export function UploadDialog({ open, onClose }: UploadDialogProps) {
+  const [phase, setPhase] = useState<Phase>('loading');
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Reset to loading on every open transition so a stale empty/error state
+  // from a previous open doesn't bleed through.
   useEffect(() => {
-    let cancelled = false;
     if (!open) return;
+    setPhase('loading');
+    setLoadError(null);
+    let cancelled = false;
     listMyOrgs()
       .then((orgs) => {
         if (cancelled) return;
-        setOrgId(orgs[0]?.org.id ?? null);
+        if (orgs.length === 0) {
+          setPhase('no-orgs');
+        } else {
+          setOrgId(orgs[0]!.org.id);
+          setPhase('ready');
+        }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setOrgId(null);
+        setLoadError(err instanceof Error ? err.message : '加载组织失败');
+        setPhase('error');
       });
     return () => {
       cancelled = true;
     };
   }, [open]);
 
-  if (!orgId) {
-    return (
-      <Modal open={open} title="上传资产" onClose={onClose}>
-        <div className={styles.preview}>正在准备…</div>
-      </Modal>
-    );
+  return (
+    <Modal open={open} title="上传资产" onClose={onClose}>
+      {phase === 'loading' && <div className={styles.preview}>正在准备…</div>}
+      {phase === 'no-orgs' && (
+        <NoOrgsState
+          onCreated={(id) => {
+            setOrgId(id);
+            setPhase('ready');
+          }}
+        />
+      )}
+      {phase === 'error' && <ErrorState message={loadError} onClose={onClose} />}
+      {phase === 'ready' && orgId && <UploadDialogBody orgId={orgId} onClose={onClose} />}
+    </Modal>
+  );
+}
+
+function NoOrgsState({ onCreated }: { onCreated: (orgId: string) => void }) {
+  const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed === '' || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await createOrg({ name: trimmed });
+      onCreated(res.org.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建组织失败');
+      setSubmitting(false);
+    }
   }
 
-  return <UploadDialogBody orgId={orgId} onClose={onClose} />;
+  return (
+    <div className={styles.emptyState}>
+      <h3 className={styles.emptyHeading}>需要先创建组织</h3>
+      <p className={styles.emptyBody}>
+        每个资产必须归属于一个组织。请输入组织名称以开始使用 DAM-Link。
+      </p>
+      <form className={styles.emptyForm} onSubmit={handleSubmit}>
+        <input
+          type="text"
+          className={styles.emptyInput}
+          aria-label="组织名称"
+          placeholder="组织名称"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={submitting}
+          required
+        />
+        <button
+          type="submit"
+          className={styles.primaryButton}
+          disabled={submitting || name.trim() === ''}
+        >
+          {submitting ? '创建中…' : '创建'}
+        </button>
+      </form>
+      {error && <p className={styles.emptyError} role="alert">{error}</p>}
+    </div>
+  );
+}
+
+function ErrorState({ message, onClose }: { message: string | null; onClose: () => void }) {
+  return (
+    <div className={styles.emptyState}>
+      <h3 className={styles.emptyHeading}>无法加载组织</h3>
+      <p className={styles.emptyBody} role="alert">{message ?? '未知错误'}</p>
+      <button type="button" className={styles.primaryButton} onClick={onClose}>
+        关闭
+      </button>
+    </div>
+  );
 }
 
 interface BodyProps {
