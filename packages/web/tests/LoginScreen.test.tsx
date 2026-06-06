@@ -213,3 +213,57 @@ describe('LoginScreen error handling (T5)', () => {
     expect(alert).toHaveTextContent(/something went wrong/i);
   });
 });
+
+describe('LoginScreen loading state (T6)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('shows the Spinner inside the button while the request is in flight', async () => {
+    let resolveLogin!: (v: { user: { id: string; email: string; displayName: string; createdAt: string } }) => void;
+    vi.mocked(apiLogin).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveLogin = resolve; }),
+    );
+    const user = userEvent.setup();
+    const { container } = render(<LoginScreen onSuccess={() => {}} />);
+
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    // While pending: spinner present, submit button disabled and contains the spinner, switch disabled.
+    const spinner = screen.getByTestId('login-screen-spinner');
+    expect(spinner).toBeInTheDocument();
+    // The busy submit button has no accessible name (the SVG is aria-hidden), so find it by type=submit.
+    const submitButton = container.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(submitButton).toBeDisabled();
+    expect(submitButton).toContainElement(spinner);
+    expect(screen.getByRole('button', { name: /^register$/i })).toBeDisabled();
+
+    // Resolve to clean up.
+    resolveLogin({ user: { id: 'u1', email: 'me@studio.com', displayName: 'Me', createdAt: '2026-06-06T00:00:00.000Z' } });
+  });
+
+  it('does not change mode when the switch is clicked while busy', async () => {
+    let resolveLogin!: (v: { user: { id: string; email: string; displayName: string; createdAt: string } }) => void;
+    vi.mocked(apiLogin).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveLogin = resolve; }),
+    );
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    // Try to switch — the button is disabled, so a click is a no-op.
+    const switchBtn = screen.getByRole('button', { name: /^register$/i });
+    expect(switchBtn).toBeDisabled();
+    await user.click(switchBtn);
+
+    // Still in login mode — no Name field visible, button label is Sign in.
+    expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument();
+
+    resolveLogin({ user: { id: 'u1', email: 'me@studio.com', displayName: 'Me', createdAt: '2026-06-06T00:00:00.000Z' } });
+  });
+});
