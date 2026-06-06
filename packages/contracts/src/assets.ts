@@ -127,3 +127,11 @@ export type SidebarCounts = z.infer<typeof SidebarCountsSchema>;
 
 /** View mode (re-export so the web package can import from one place). */
 export { ViewModeSchema };
+
+/** Response for GET /api/v1/orgs/:orgId/assets/:id/download-url — presigned GET URL. */
+export const DownloadUrlResponseSchema = z.object({
+  data: z.object({
+    downloadUrl: z.string().url(),
+  }),
+});
+export type DownloadUrlResponse = z.infer<typeof DownloadUrlResponseSchema>;
