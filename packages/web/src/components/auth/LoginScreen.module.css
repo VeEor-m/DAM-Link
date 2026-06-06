@@ -88,16 +88,6 @@
   gap: 8px;
 }
 
-.fieldAnimated {
-  /* Height + opacity transition for the Name field insertion. */
-  animation: fieldIn 180ms var(--easing-standard) both;
-}
-
-@keyframes fieldIn {
-  from { opacity: 0; transform: translateY(-4px); max-height: 0; }
-  to   { opacity: 1; transform: translateY(0);   max-height: 200px; }
-}
-
 .label {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -253,10 +243,4 @@
    (per spec §7: "Hidden on smallest (≤480); show above 480"). */
 @media (max-width: 480px) {
   .corner { display: none; }
-}
-
-/* Reduced motion: skip the Name-field entrance animation. */
-@media (prefers-reduced-motion: reduce) {
-  .fieldAnimated { animation: none; }
-  .spinner { animation-duration: 1.5s; }
 }
