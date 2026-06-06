@@ -5,7 +5,7 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import type { Asset } from '../../state/types';
-import { thumbnailEmoji } from '../../utils/fileType';
+import { thumbnailEmoji, thumbnailSrc } from '../../utils/fileType';
 import {
   formatSize,
   formatRelativeDate,
@@ -75,8 +75,8 @@ export function AssetListRow({
         aria-pressed={selected}
       />
       <div className={styles.thumb}>
-        {asset.previewDataUrl ? (
-          <img src={asset.previewDataUrl} alt="" />
+        {thumbnailSrc(asset) ? (
+          <img src={thumbnailSrc(asset) ?? undefined} alt="" />
         ) : (
           <span aria-hidden="true">{thumbnailEmoji(asset.type, asset.format)}</span>
         )}

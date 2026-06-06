@@ -168,3 +168,44 @@ describe('AssetCard multi-select checkbox', () => {
     });
   });
 });
+
+describe('AssetCard thumbnail rendering (regression: Plan 8 migration read site)', () => {
+  const PRESIGNED = 'http://localhost:9000/dam-link-dev/thumbnails/org/asset.webp?X-Amz-Signature=abc';
+
+  // The thumb <img> uses alt="" (decorative) so getByRole('img') doesn't match.
+  // Query the DOM directly for the first <img> in the card.
+  function findThumbImg(container: HTMLElement): HTMLImageElement {
+    const img = container.querySelector('img');
+    if (!img) throw new Error('thumb <img> not rendered');
+    return img;
+  }
+
+  it('renders the API thumbnail <img> when _thumbnailUrl is set (Plan 8 path)', () => {
+    const { container } = render(
+      <AssetCard
+        {...makeProps({
+          // Cast: _thumbnailUrl is populated by persistence.ts loadState()
+          // from the API response; the type cast there bypasses the strict
+          // Asset shape. This test pins the consumer's expectation.
+          asset: { ...baseAsset, _thumbnailUrl: PRESIGNED } as Asset,
+        })}
+      />,
+    );
+    expect(findThumbImg(container)).toHaveAttribute('src', PRESIGNED);
+  });
+
+  it('renders the legacy previewDataUrl <img> when only that is set (back-compat)', () => {
+    const dataUrl = 'data:image/png;base64,AAAA';
+    const { container } = render(
+      <AssetCard
+        {...makeProps({ asset: { ...baseAsset, previewDataUrl: dataUrl } })}
+      />,
+    );
+    expect(findThumbImg(container)).toHaveAttribute('src', dataUrl);
+  });
+
+  it('falls back to the type emoji when neither thumbnail source is set', () => {
+    const { container } = render(<AssetCard {...makeProps()} />);
+    expect(container.querySelector('img')).toBeNull();
+  });
+});

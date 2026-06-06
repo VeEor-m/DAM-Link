@@ -31,6 +31,11 @@ export const AssetSchema = z.object({
 
   objectKey: z.string(),
   thumbnailKey: z.string().nullable().optional(),
+  // Presigned URL to the thumbnail, attached by the list/detail responses
+  // (server-side enrichment). Signature expires (default 1h); clients must
+  // re-fetch when stale. `null` when no thumbnail has been generated yet;
+  // field omitted when the asset type doesn't support thumbnails.
+  thumbnailUrl: z.string().url().nullable().optional(),
   status: AssetStatusSchema,
   visibility: VisibilitySchema,
 });

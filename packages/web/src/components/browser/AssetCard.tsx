@@ -1,7 +1,7 @@
 import { IconStar, IconStarFilled, IconDotsVertical, IconCheck } from '@tabler/icons-react';
 import type { KeyboardEvent } from 'react';
 import type { Asset } from '../../state/types';
-import { thumbnailEmoji } from '../../utils/fileType';
+import { thumbnailEmoji, thumbnailSrc } from '../../utils/fileType';
 import { formatSize, formatDims, formatDuration } from '../../utils/format';
 import styles from './AssetCard.module.css';
 
@@ -48,6 +48,7 @@ export function AssetCard({
   onToggleMultiSelect,
 }: AssetCardProps) {
   const hasCheckbox = onToggleMultiSelect !== undefined;
+  const thumbSrc = thumbnailSrc(asset);
   // The outer used to be a <button>, but it contains other <button>s
   // (the multi-select checkbox and the kebab). HTML disallows nested
   // buttons; the renderer warned and React flagged a hydration risk.
@@ -74,12 +75,8 @@ export function AssetCard({
       aria-label={`${asset.name}，${formatSize(asset.size)}`}
     >
       <div className={styles.thumb}>
-        {asset.previewDataUrl ? (
-          <img
-            src={asset.previewDataUrl}
-            alt=""
-            className={styles.thumbImg}
-          />
+        {thumbSrc ? (
+          <img src={thumbSrc} alt="" className={styles.thumbImg} />
         ) : (
           <span aria-hidden="true">{thumbnailEmoji(asset.type, asset.format)}</span>
         )}

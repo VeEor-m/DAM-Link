@@ -34,11 +34,12 @@ export async function loadState(): Promise<AppState | null> {
         width: a.width ?? undefined,
         height: a.height ?? undefined,
         duration: a.duration ?? undefined,
-        previewDataUrl: a.thumbnailKey ? null : undefined,
-        // Thumbnail URL is dynamic and lives on the API response. The UI reads it
-        // from the asset list response (which includes presigned URLs).
-        _thumbnailUrl: (a as { thumbnailUrl?: string | null }).thumbnailUrl ?? null,
-      })) as AppState['assets'],
+        // Presigned URL from the API list response. Signature expires (default
+        // 1h), so the UI must re-fetch via listAssets when it's stale. The
+        // `previewDataUrl` legacy field stays undefined — canvas thumbnails
+        // are not generated in the API-backed store.
+        _thumbnailUrl: a.thumbnailUrl ?? null,
+      })),
       ui: defaultUI(),
     };
   } catch {

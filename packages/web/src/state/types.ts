@@ -17,8 +17,15 @@ export interface Asset {
   width?: number;
   height?: number;
   duration?: number; // seconds, for video/audio
-  // base64 data URL — only populated for uploaded images, used as the card thumbnail
+  // base64 data URL — only populated for client-side canvas thumbnails
+  // (legacy: Plan 8 was localStorage-only). Prefer `_thumbnailUrl` below.
   previewDataUrl?: string;
+  /** Presigned URL to the server-rendered thumbnail (image/video) or
+   *  document preview, populated by `persistence.loadState()` from the API
+   *  list response. Lives on the runtime asset (not persisted) because the
+   *  signature expires. `null` means the API didn't return a URL (e.g. the
+   *  asset has no thumbnail yet). */
+  _thumbnailUrl?: string | null;
 }
 
 /** View modes for the main browser pane. */

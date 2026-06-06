@@ -1,5 +1,5 @@
 import type { Asset } from '../../state/types';
-import { thumbnailEmoji } from '../../utils/fileType';
+import { thumbnailEmoji, thumbnailSrc } from '../../utils/fileType';
 import { formatSize, formatDims, formatDuration } from '../../utils/format';
 import { IconStar, IconStarFilled, IconDotsVertical, IconCheck } from '@tabler/icons-react';
 import styles from './StackedCardList.module.css';
@@ -74,8 +74,8 @@ export function StackedCardList({
               aria-pressed={selected}
             />
             <div className={styles.thumb}>
-              {a.previewDataUrl ? (
-                <img src={a.previewDataUrl} alt="" />
+              {thumbnailSrc(a) ? (
+                <img src={thumbnailSrc(a) ?? undefined} alt="" />
               ) : (
                 <span aria-hidden="true">{thumbnailEmoji(a.type, a.format)}</span>
               )}

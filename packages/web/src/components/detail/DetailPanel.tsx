@@ -9,7 +9,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import type { Asset } from '../../state/types';
-import { thumbnailEmoji } from '../../utils/fileType';
+import { thumbnailEmoji, thumbnailSrc } from '../../utils/fileType';
 import {
   formatSize,
   formatDate,
@@ -106,8 +106,8 @@ export function DetailPanel({
         </button>
       )}
       <div className={styles.preview}>
-        {asset.previewDataUrl ? (
-          <img src={asset.previewDataUrl} alt="" className={styles.previewImg} />
+        {thumbnailSrc(asset) ? (
+          <img src={thumbnailSrc(asset) ?? undefined} alt="" className={styles.previewImg} />
         ) : (
           <span aria-hidden="true">
             {thumbnailEmoji(asset.type, asset.format)}

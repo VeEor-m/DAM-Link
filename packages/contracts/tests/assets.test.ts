@@ -33,6 +33,17 @@ describe('AssetSchema', () => {
     expect(AssetSchema.parse(validAsset)).toEqual(validAsset);
   });
 
+  it('accepts an asset with a presigned thumbnailUrl (list-response enrichment)', () => {
+    const url = 'https://cdn.example.com/thumbs/abc.webp?X-Amz-Signature=foo';
+    const parsed = AssetSchema.parse({ ...validAsset, thumbnailUrl: url });
+    expect(parsed.thumbnailUrl).toBe(url);
+  });
+
+  it('accepts thumbnailUrl: null (no thumbnail generated yet)', () => {
+    const parsed = AssetSchema.parse({ ...validAsset, thumbnailUrl: null });
+    expect(parsed.thumbnailUrl).toBeNull();
+  });
+
   it('rejects when name is empty', () => {
     expect(() => AssetSchema.parse({ ...validAsset, name: '' })).toThrow();
   });

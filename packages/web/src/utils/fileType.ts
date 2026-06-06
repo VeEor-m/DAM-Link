@@ -1,4 +1,4 @@
-import type { AssetType } from '../state/types';
+import type { Asset, AssetType } from '../state/types';
 
 /** Map a MIME type or filename to a coarse AssetType. */
 export function inferAssetType(mime: string, name?: string): AssetType {
@@ -56,4 +56,16 @@ export function thumbnailEmoji(type: AssetType, format: string): string {
   if (['XLS', 'XLSX'].includes(format)) return '📊';
   if (['PPT', 'PPTX'].includes(format)) return '📊';
   return '📄';
+}
+
+/**
+ * Pick the thumbnail src for an asset, preferring the API's presigned URL
+ * (`_thumbnailUrl`, populated by `persistence.loadState()`) and falling back
+ * to the legacy client-side canvas `previewDataUrl`. Returns `null` if
+ * neither is set; the caller should render `thumbnailEmoji(...)` instead.
+ */
+export function thumbnailSrc(asset: Asset): string | null {
+  if (asset._thumbnailUrl) return asset._thumbnailUrl;
+  if (asset.previewDataUrl) return asset.previewDataUrl;
+  return null;
 }
