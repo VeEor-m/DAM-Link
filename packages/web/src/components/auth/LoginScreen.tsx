@@ -1,10 +1,15 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { register as apiRegister, login as apiLogin } from '../../api/auth.js';
 import { ApiError } from '../../api/client.js';
-import type { LoginMode } from '../../lib/animations/login-screen.js';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import {
+  createMountEntrance,
+  createModeSwitchTimeline,
+  type LoginMode,
+} from '../../lib/animations/login-screen.js';
 import styles from './LoginScreen.module.css';
-
-type Mode = 'login' | 'register';
+// createModeSwitchTimeline is wired in T6.
+void createModeSwitchTimeline;
 
 const COPY = {
   login: {
@@ -29,7 +34,7 @@ function isValidEmail(value: string): boolean {
 }
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<LoginMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -41,6 +46,19 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   // `useGSAP`'s `dependencies` array does not expose the previous value.
   const prevModeRef = useRef<LoginMode>('login');
   void prevModeRef;
+
+  // Mount entrance — runs once on mount, gated on prefers-reduced-motion.
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        if (!cardRef.current) return;
+        createMountEntrance(cardRef.current).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: cardRef },
+  );
 
   const copy = COPY[mode];
 
