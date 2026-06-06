@@ -130,3 +130,51 @@ describe('LoginScreen client-side validation (T3)', () => {
     expect(apiRegister).not.toHaveBeenCalled();
   });
 });
+
+describe('LoginScreen successful API call (T4)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiLogin).mockResolvedValue({ user: { id: 'u1', email: 'me@studio.com', displayName: 'Me', createdAt: '2026-06-06T00:00:00.000Z' } });
+    vi.mocked(apiRegister).mockResolvedValue({ user: { id: 'u2', email: 'alex@studio.com', displayName: 'Alex', createdAt: '2026-06-06T00:00:00.000Z' } });
+  });
+
+  it('valid login calls apiLogin once and fires onSuccess', async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    render(<LoginScreen onSuccess={onSuccess} />);
+
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    expect(apiLogin).toHaveBeenCalledTimes(1);
+    expect(apiLogin).toHaveBeenCalledWith({
+      email: 'me@studio.com',
+      password: 'longenoughpassword',
+    });
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('valid register calls apiRegister with the trimmed displayName', async () => {
+    const user = userEvent.setup();
+    const onSuccess = vi.fn();
+    render(<LoginScreen onSuccess={onSuccess} />);
+    await user.click(screen.getByRole('button', { name: /^register$/i }));
+
+    await user.type(screen.getByLabelText(/^name$/i), '  Alex  ');
+    await user.type(screen.getByLabelText(/^email$/i), 'alex@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(
+      screen.getByRole('button', { name: /^create account\s*→?$/i }),
+    );
+
+    expect(apiRegister).toHaveBeenCalledTimes(1);
+    expect(apiRegister).toHaveBeenCalledWith({
+      email: 'alex@studio.com',
+      password: 'longenoughpassword',
+      displayName: 'Alex',
+    });
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+});
