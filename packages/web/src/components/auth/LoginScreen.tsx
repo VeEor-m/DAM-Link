@@ -1,60 +1,206 @@
 import { useState, type FormEvent } from 'react';
 import { register as apiRegister, login as apiLogin } from '../../api/auth.js';
 import { ApiError } from '../../api/client.js';
+import styles from './LoginScreen.module.css';
+
+type Mode = 'login' | 'register';
+
+const COPY = {
+  login: {
+    sub: 'Sign in to your library. A calm place to find, file, and finish with the assets you make.',
+    button: 'Sign in →',
+    switchPrompt: 'No account? ',
+    switchAction: 'Register',
+  },
+  register: {
+    sub: "Start your collection. We'll set up a workspace in under a minute.",
+    button: 'Create account →',
+    switchPrompt: 'Have an account? ',
+    switchAction: 'Sign in',
+  },
+} as const;
+
+const SPINNER_ID = 'login-screen-spinner';
+
+function isValidEmail(value: string): boolean {
+  // Lightweight client-side check; the server is the source of truth.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const copy = COPY[mode];
+
+  const toggleMode = () => {
+    if (busy) return;
+    setMode((m) => (m === 'login' ? 'register' : 'login'));
+    setError(null);
+  };
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (busy) return;
     setError(null);
+
+    // Client-side validation. Order matters: check fields in the order the
+    // user fills them so the first empty one is the one that complains.
+    const trimmedName = displayName.trim();
+    const trimmedEmail = email.trim();
+    if (mode === 'register' && trimmedName === '') {
+      setError('Name is required.');
+      return;
+    }
+    if (trimmedEmail === '') {
+      setError('Email is required.');
+      return;
+    }
+    if (!isValidEmail(trimmedEmail)) {
+      setError("That doesn't look like an email.");
+      return;
+    }
+    if (password === '') {
+      setError('Password is required.');
+      return;
+    }
+    if (mode === 'register' && password.length < 8) {
+      setError('Use at least 8 characters.');
+      return;
+    }
+
     setBusy(true);
     try {
       if (mode === 'register') {
-        await apiRegister({ email, password, displayName });
+        await apiRegister({ email: trimmedEmail, password, displayName: trimmedName });
       } else {
-        await apiLogin({ email, password });
+        await apiLogin({ email: trimmedEmail, password });
       }
       onSuccess();
     } catch (err) {
-      if (err instanceof ApiError) setError(err.message);
-      else setError('Something went wrong');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Something went wrong. Check your connection and try again.');
+      }
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="login-screen">
-      <h1>{mode === 'login' ? 'Sign in' : 'Create account'}</h1>
-      <form onSubmit={onSubmit}>
-        {mode === 'register' && (
-          <label>
-            Name
-            <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} required />
-          </label>
-        )}
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label>
-          Password
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-        </label>
-        {error && <div className="error">{error}</div>}
-        <button type="submit" disabled={busy}>
-          {busy ? '...' : mode === 'login' ? 'Sign in' : 'Create account'}
-        </button>
-      </form>
-      <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-        {mode === 'login' ? 'Need an account?' : 'Have an account? Sign in'}
-      </button>
-    </div>
+    <main className={styles.page}>
+      <article className={styles.card}>
+        <span className={`${styles.corner} ${styles.cornerTL}`} aria-hidden="true">
+          DAM-Link · est. 2026
+        </span>
+        <span className={`${styles.corner} ${styles.cornerBR}`} aria-hidden="true">
+          P. 01 / 01
+        </span>
+
+        <header className={styles.cover}>
+          <p className={styles.meta}>VOL. 01 / NO. 26 / 2026</p>
+          <h1 className={styles.headline}>An archive, organized.</h1>
+          <p className={styles.sub}>{copy.sub}</p>
+        </header>
+
+        <div>
+          <hr className={styles.rule} />
+          <form className={styles.form} onSubmit={onSubmit} noValidate aria-busy={busy}>
+            {mode === 'register' && (
+              <div className={`${styles.field} ${styles.fieldAnimated}`}>
+                <label htmlFor="login-name" className={styles.label}>
+                  Name
+                </label>
+                <input
+                  id="login-name"
+                  className={styles.input}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            )}
+            <div className={styles.field}>
+              <label htmlFor="login-email" className={styles.label}>
+                Email
+              </label>
+              <input
+                id="login-email"
+                className={styles.input}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="you@studio.com"
+                required
+              />
+            </div>
+            <div className={styles.field}>
+              <label htmlFor="login-password" className={styles.label}>
+                Password
+              </label>
+              <input
+                id="login-password"
+                className={styles.input}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                minLength={mode === 'register' ? 8 : undefined}
+                placeholder={mode === 'register' ? 'At least 8 characters' : undefined}
+                required
+              />
+            </div>
+
+            {error !== null && (
+              <p role="alert" className={styles.error}>
+                {error}
+              </p>
+            )}
+
+            <div className={styles.footerRow}>
+              <span className={styles.switch}>
+                {copy.switchPrompt}
+                <button
+                  type="button"
+                  className={styles.switchButton}
+                  onClick={toggleMode}
+                  disabled={busy}
+                >
+                  {copy.switchAction}
+                </button>
+              </span>
+              <button type="submit" className={styles.button} disabled={busy}>
+                {busy ? (
+                  <svg
+                    className={styles.spinner}
+                    viewBox="0 0 24 24"
+                    data-testid={SPINNER_ID}
+                    aria-hidden="true"
+                  >
+                    <circle
+                      className={styles.spinnerCircle}
+                      cx="12"
+                      cy="12"
+                      r="9"
+                    />
+                  </svg>
+                ) : (
+                  copy.button
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </article>
+
+      <footer className={styles.pageFooter}>DAM-LINK · A DIGITAL ASSET LIBRARY</footer>
+    </main>
   );
 }
