@@ -10,6 +10,7 @@ vi.mock('../src/api/auth.js', () => ({
 }));
 
 import { login as apiLogin, register as apiRegister } from '../src/api/auth.js';
+import { ApiError } from '../src/api/client.js';
 
 describe('LoginScreen default render (T1)', () => {
   beforeEach(() => {
@@ -176,5 +177,39 @@ describe('LoginScreen successful API call (T4)', () => {
       displayName: 'Alex',
     });
     expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('LoginScreen error handling (T5)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the ApiError message verbatim in an alert region', async () => {
+    vi.mocked(apiLogin).mockRejectedValueOnce(
+      new ApiError(401, 'BAD_CREDENTIALS', 'Invalid email or password.'),
+    );
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'wrongpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/invalid email or password\./i);
+  });
+
+  it('falls back to a generic message on a non-ApiError', async () => {
+    vi.mocked(apiLogin).mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/something went wrong/i);
   });
 });
