@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { LoginScreen } from '../src/components/auth/LoginScreen';
 
 // Mock the API module before importing the component.
@@ -8,9 +7,6 @@ vi.mock('../src/api/auth.js', () => ({
   login: vi.fn(),
   register: vi.fn(),
 }));
-
-// api/client is not exercised here yet; importing it is harmless.
-import { ApiError } from '../src/api/client.js';
 
 describe('LoginScreen default render (T1)', () => {
   beforeEach(() => {
