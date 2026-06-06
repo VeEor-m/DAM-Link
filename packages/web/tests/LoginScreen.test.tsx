@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginScreen } from '../src/components/auth/LoginScreen';
 
@@ -9,8 +9,18 @@ vi.mock('../src/api/auth.js', () => ({
   register: vi.fn(),
 }));
 
+vi.mock('../src/lib/animations/login-screen.js', async () => {
+  const { gsap } = await import('gsap');
+  return {
+    createMountEntrance: vi.fn(() => gsap.timeline({ paused: true })),
+    createModeSwitchTimeline: vi.fn(() => gsap.timeline({ paused: true })),
+  };
+});
+
 import { login as apiLogin, register as apiRegister } from '../src/api/auth.js';
 import { ApiError } from '../src/api/client.js';
+import * as loginScreenAnimations from '../src/lib/animations/login-screen.js';
+import { gsap } from '../src/lib/gsap-setup.js';
 
 describe('LoginScreen default render (T1)', () => {
   beforeEach(() => {
@@ -265,5 +275,118 @@ describe('LoginScreen loading state (T6)', () => {
     expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument();
 
     resolveLogin({ user: { id: 'u1', email: 'me@studio.com', displayName: 'Me', createdAt: '2026-06-06T00:00:00.000Z' } });
+  });
+});
+
+describe('LoginScreen GSAP mount entrance (T5)', () => {
+  let originalMatchMedia: typeof window.matchMedia;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalMatchMedia = window.matchMedia;
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  function mockMatchMedia(matches: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    }));
+  }
+
+  it('runs the mount entrance on initial render when no-preference', async () => {
+    mockMatchMedia(true);
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    await waitFor(() => {
+      expect(loginScreenAnimations.createMountEntrance).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('skips the mount entrance when prefers-reduced-motion is reduce', async () => {
+    mockMatchMedia(false);
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    // Give React + GSAP a tick to either run or not run the entrance.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(loginScreenAnimations.createMountEntrance).not.toHaveBeenCalled();
+  });
+});
+
+describe('LoginScreen GSAP mode switch (T6)', () => {
+  let originalMatchMedia: typeof window.matchMedia;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalMatchMedia = window.matchMedia;
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  function mockMatchMedia(matches: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    }));
+  }
+
+  it('calls createModeSwitchTimeline when the user clicks the mode switch', async () => {
+    mockMatchMedia(true);
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    // Wait for the initial mount to finish wiring.
+    await waitFor(() => {
+      expect(loginScreenAnimations.createMountEntrance).toHaveBeenCalledTimes(1);
+    });
+
+    // Click the mode switch (login -> register).
+    await user.click(screen.getByRole('button', { name: /^register$/i }));
+
+    await waitFor(() => {
+      expect(loginScreenAnimations.createModeSwitchTimeline).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        'login',
+        'register',
+      );
+    });
+  });
+
+  it('cleans up the GSAP context on unmount (no leftover timelines)', async () => {
+    mockMatchMedia(true);
+    const { unmount } = render(<LoginScreen onSuccess={() => {}} />);
+
+    await waitFor(() => {
+      expect(loginScreenAnimations.createMountEntrance).toHaveBeenCalledTimes(1);
+    });
+
+    const timelineCountBeforeUnmount = gsap.globalTimeline.getChildren(true, true, true).length;
+    expect(timelineCountBeforeUnmount).toBeGreaterThan(0);
+
+    unmount();
+
+    // useGSAP reverts its context on unmount, killing all tweens created within.
+    await waitFor(() => {
+      const timelineCountAfterUnmount = gsap.globalTimeline.getChildren(true, true, true).length;
+      expect(timelineCountAfterUnmount).toBeLessThan(timelineCountBeforeUnmount);
+    });
   });
 });
