@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { register as apiRegister, login as apiLogin } from '../../api/auth.js';
 import { ApiError } from '../../api/client.js';
+import type { LoginMode } from '../../lib/animations/login-screen.js';
 import styles from './LoginScreen.module.css';
 
 type Mode = 'login' | 'register';
@@ -34,6 +35,12 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const cardRef = useRef<HTMLElement>(null);
+  // Read by the mode-switch useGSAP (wired in T6). Tracked via ref because
+  // `useGSAP`'s `dependencies` array does not expose the previous value.
+  const prevModeRef = useRef<LoginMode>('login');
+  void prevModeRef;
 
   const copy = COPY[mode];
 
@@ -94,25 +101,25 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <main className={styles.page}>
-      <article className={styles.card}>
-        <span className={`${styles.corner} ${styles.cornerTL}`} aria-hidden="true">
+      <article ref={cardRef} className={styles.card}>
+        <span className={`${styles.corner} ${styles.cornerTL}`} aria-hidden="true" data-anim="corner">
           DAM-Link · est. 2026
         </span>
-        <span className={`${styles.corner} ${styles.cornerBR}`} aria-hidden="true">
+        <span className={`${styles.corner} ${styles.cornerBR}`} aria-hidden="true" data-anim="corner">
           P. 01 / 01
         </span>
 
         <header className={styles.cover}>
-          <p className={styles.meta}>VOL. 01 / NO. 26 / 2026</p>
-          <h1 className={styles.headline}>An archive, organized.</h1>
-          <p className={styles.sub}>{copy.sub}</p>
+          <p className={styles.meta} data-anim="meta">VOL. 01 / NO. 26 / 2026</p>
+          <h1 className={styles.headline} data-anim="headline">An archive, organized.</h1>
+          <p className={styles.sub} data-anim="sub">{copy.sub}</p>
         </header>
 
         <div>
-          <hr className={styles.rule} />
+          <hr className={styles.rule} data-anim="rule" />
           <form className={styles.form} onSubmit={onSubmit} noValidate aria-busy={busy}>
             {mode === 'register' && (
-              <div className={`${styles.field} ${styles.fieldAnimated}`}>
+              <div className={styles.field} data-anim="name-field">
                 <label htmlFor="login-name" className={styles.label}>
                   Name
                 </label>
@@ -126,7 +133,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                 />
               </div>
             )}
-            <div className={styles.field}>
+            <div className={styles.field} data-anim="field">
               <label htmlFor="login-email" className={styles.label}>
                 Email
               </label>
@@ -141,7 +148,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                 required
               />
             </div>
-            <div className={styles.field}>
+            <div className={styles.field} data-anim="field">
               <label htmlFor="login-password" className={styles.label}>
                 Password
               </label>
@@ -164,7 +171,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
               </p>
             )}
 
-            <div className={styles.footerRow}>
+            <div className={styles.footerRow} data-anim="footer">
               <span className={styles.switch}>
                 {copy.switchPrompt}
                 <button
