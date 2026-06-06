@@ -26,5 +26,8 @@ packages/api/drizzle/meta/_journal.json.bak
 # worktrees
 .worktrees/
 
+# brainstorming visual companion artifacts
+.superpowers/
+
 # prod-simulation secrets (used by docker-compose.prod.yml)
 .env.prod-local
