@@ -261,7 +261,7 @@ describe('LoginScreen loading state (T6)', () => {
     expect(switchBtn).toBeDisabled();
     await user.click(switchBtn);
 
-    // Still in login mode — no Name field visible, button label is Sign in.
+    // Still in login mode — no Name field visible.
     expect(screen.queryByLabelText(/^name$/i)).not.toBeInTheDocument();
 
     resolveLogin({ user: { id: 'u1', email: 'me@studio.com', displayName: 'Me', createdAt: '2026-06-06T00:00:00.000Z' } });
