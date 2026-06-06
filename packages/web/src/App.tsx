@@ -291,23 +291,48 @@ export default function App() {
     dispatch({ type: 'CLEAR_BATCH_SELECTION' });
   }
 
-  function handleBatchToggleFavorite() {
+  async function handleBatchToggleFavorite() {
     if (batchCount === 0) return;
-    // If every selected is already a favorite, un-favorite them all;
-    // otherwise favorite them all. wrappedDispatch fans out to
-    // UPDATE_ASSET for each id.
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
     const next = !batchAllFavorites;
-    for (const id of state.ui.selectedIds) {
+    // Only act on assets whose current value differs (avoids no-op PATCHes).
+    const ids = state.ui.selectedIds.filter((id) => {
       const a = state.assets.find((x) => x.id === id);
-      if (!a) continue;
-      if (a.favorite !== next) {
-        dispatch({ type: 'TOGGLE_FAVORITE', id });
+      return a && a.favorite !== next;
+    });
+    // Snapshot the "before" values so we can roll back per-asset on failure.
+    const beforeById = new Map<string, boolean>();
+    for (const id of ids) {
+      const a = state.assets.find((x) => x.id === id);
+      if (a) beforeById.set(id, a.favorite);
+    }
+    // Optimistic local flip for all selected assets.
+    for (const id of ids) {
+      dispatch({ type: 'UPDATE_ASSET', id, patch: { favorite: next } });
+    }
+    // Sequential PATCH with per-asset rollback on failure.
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        await updateAsset(orgId, id, { favorite: next });
+      } catch {
+        failed += 1;
+        const before = beforeById.get(id);
+        if (before !== undefined) {
+          dispatch({ type: 'UPDATE_ASSET', id, patch: { favorite: before } });
+        }
       }
+    }
+    if (failed > 0) {
+      toast.showToast({ message: '部分收藏操作失败', variant: 'error' });
     }
   }
 
   async function handleBatchDelete() {
     if (batchCount === 0) return;
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
     const ok = await confirm({
       title: '批量移到回收站',
       body: `确定要将 ${batchCount} 个资产移到回收站吗？`,
@@ -316,13 +341,35 @@ export default function App() {
       danger: true,
     });
     if (!ok) return;
-    dispatch({
-      type: 'BATCH_DELETE',
-      ids: state.ui.selectedIds,
-      when: new Date(),
-    });
+    const before = state.assets;
+    // Soft-delete only the SELECTED ids, not the entire trash. The previous
+    // implementation dispatched a BATCH_DELETE reducer which only updated
+    // state but never called the API; we now run `deleteAsset` per id so
+    // the server is kept in sync.
+    let working = before;
+    const when = new Date();
+    for (const id of state.ui.selectedIds) {
+      const { nextState: afterOne } = deleteAsset({ assets: working, ui: state.ui }, id, when);
+      working = afterOne.assets;
+    }
+    dispatch({ type: 'HYDRATE_STATE', state: { assets: working, ui: state.ui } });
     dispatch({ type: 'CLEAR_BATCH_SELECTION' });
-    toast.showToast({ message: `已将 ${batchCount} 个资产移到回收站`, variant: 'success' });
+    // Sequential API calls with per-asset rollback on failure.
+    let failed = 0;
+    for (const id of state.ui.selectedIds) {
+      try {
+        await apiSoftDelete(orgId, id);
+      } catch {
+        failed += 1;
+      }
+    }
+    if (failed > 0) {
+      // Roll back the local state for the failed ones by restoring `before`.
+      dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+      toast.showToast({ message: `${failed} 个资产删除失败`, variant: 'error' });
+    } else {
+      toast.showToast({ message: `已将 ${batchCount} 个资产移到回收站`, variant: 'success' });
+    }
   }
 
   function handleCopyLink() {

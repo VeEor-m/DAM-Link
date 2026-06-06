@@ -114,6 +114,113 @@ async function selectAsset(user: ReturnType<typeof userEvent.setup>, name: strin
   await user.click(card);
 }
 
+describe('App — BatchActionBar handlers', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  /** Mount <App /> with TWO assets so we can multi-select both and exercise
+   *  the BatchActionBar. Returns the two asset shapes for assertions. */
+  async function mountWithTwoAssets() {
+    const a = makeApiAsset({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'a.png',
+    });
+    const b = makeApiAsset({
+      id: '22222222-2222-4222-8222-222222222222',
+      name: 'b.png',
+    });
+    vi.mocked(me).mockResolvedValue({
+      user: {
+        id: 'u1',
+        email: 'a@b.c',
+        displayName: 'A',
+        createdAt: '2026-06-06T00:00:00.000Z',
+      },
+      orgs: [],
+    });
+    vi.mocked(listMyOrgs).mockResolvedValue([
+      {
+        org: {
+          id: 'org-1',
+          name: 'O',
+          slug: 'o',
+          createdAt: '2026-06-06T00:00:00.000Z',
+        },
+        role: 'owner',
+      },
+    ]);
+    vi.mocked(listAssets).mockResolvedValue({ items: [a, b], nextCursor: null });
+    vi.mocked(sidebarCounts).mockResolvedValue({
+      byType: { image: 0, video: 0, document: 0, audio: 0 },
+      byTag: [],
+      favorites: 0,
+      trash: 0,
+    });
+    vi.mocked(updateAsset).mockImplementation(async (_o, id, patch) =>
+      makeApiAsset({ id, ...patch }) as Asset,
+    );
+    vi.mocked(softDelete).mockImplementation(async (_o, id) =>
+      makeApiAsset({ id, deletedAt: '2026-06-06T10:00:00.000Z' }) as Asset,
+    );
+
+    const utils = render(
+      <StoreProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    await screen.findByText('a.png');
+    return { a, b, utils };
+  }
+
+  it('batch favorite toggles both assets via PATCH', async () => {
+    const user = userEvent.setup();
+    await mountWithTwoAssets();
+
+    // Multi-select checkboxes on the two asset cards (role="checkbox",
+    // aria-label "选择" or "取消选择").
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes).toHaveLength(2);
+    await user.click(checkboxes[0]!);
+    await user.click(checkboxes[1]!);
+
+    // BatchActionBar renders the "收藏" button (all-favorites=false).
+    await user.click(screen.getByRole('button', { name: /^收藏/ }));
+    await waitFor(() => {
+      expect(updateAsset).toHaveBeenCalledWith('org-1', expect.any(String), { favorite: true });
+    });
+    // Both ids should appear in the PATCH calls.
+    const ids = vi.mocked(updateAsset).mock.calls.map((c) => c[1]);
+    expect(ids).toContain('11111111-1111-4111-8111-111111111111');
+    expect(ids).toContain('22222222-2222-4222-8222-222222222222');
+  });
+
+  it('batch delete calls POST /soft-delete for each selected asset', async () => {
+    const user = userEvent.setup();
+    await mountWithTwoAssets();
+
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes).toHaveLength(2);
+    await user.click(checkboxes[0]!);
+    await user.click(checkboxes[1]!);
+
+    // The BatchActionBar delete button has aria-label "移到回收站".
+    await user.click(screen.getByRole('button', { name: /移到回收站/ }));
+    // Confirm dialog — the BatchActionBar button and the confirm button
+    // share the same label ("移到回收站"). The confirm button is the
+    // one rendered after the dialog opens, so pick the last match.
+    const moveToTrashButtons = await screen.findAllByRole('button', { name: /^移到回收站$/ });
+    expect(moveToTrashButtons.length).toBeGreaterThanOrEqual(2);
+    await user.click(moveToTrashButtons[moveToTrashButtons.length - 1]!);
+
+    await waitFor(() => {
+      const ids = vi.mocked(softDelete).mock.calls.map((c) => c[1]);
+      expect(ids).toContain('11111111-1111-4111-8111-111111111111');
+      expect(ids).toContain('22222222-2222-4222-8222-222222222222');
+    });
+  });
+});
+
 describe('App DetailPanel handlers — API wiring', () => {
   beforeEach(() => vi.clearAllMocks());
 
