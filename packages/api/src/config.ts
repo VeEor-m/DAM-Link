@@ -27,8 +27,8 @@ const ConfigSchema = z.object({
 
   SENTRY_DSN: z
     .string()
-    .url()
     .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined))
     .refine(
       (v) => v === undefined || v.startsWith('https://'),
       'SENTRY_DSN must be HTTPS',

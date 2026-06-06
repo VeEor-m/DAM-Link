@@ -52,3 +52,52 @@ describe('config (production rules)', () => {
     expect(() => loadConfig({ ...baseProd, LOG_LEVEL: 'debug' })).toThrow(/LOG_LEVEL/);
   });
 });
+
+describe('config (SENTRY_DSN)', () => {
+  beforeEach(() => _resetConfigForTests());
+
+  const baseDev = {
+    NODE_ENV: 'development',
+    LOG_LEVEL: 'info',
+    WEB_ORIGIN: 'http://localhost:5173',
+    API_HOST: '0.0.0.0',
+    API_PORT: '3000',
+    API_PUBLIC_URL: 'http://localhost:3000',
+    DATABASE_URL: 'postgres://dam:dam@localhost:54321/dam_link',
+    S3_ENDPOINT: 'http://localhost:9000',
+    S3_REGION: 'us-east-1',
+    S3_ACCESS_KEY: 'dam',
+    S3_SECRET_KEY: 'dams3cret',
+    S3_BUCKET: 'dam-link-dev',
+    S3_FORCE_PATH_STYLE: 'true',
+    SESSION_COOKIE_NAME: 'dam_session',
+    SESSION_TTL_DAYS: '30',
+    SESSION_COOKIE_SECRET: 'change-me-32-bytes-of-random-data',
+  } as const;
+
+  it('treats an empty SENTRY_DSN string as undefined (dev default)', () => {
+    const cfg = loadConfig({ ...baseDev, SENTRY_DSN: '' });
+    expect(cfg.SENTRY_DSN).toBeUndefined();
+  });
+
+  it('treats an unset SENTRY_DSN as undefined', () => {
+    const cfg = loadConfig(baseDev);
+    expect(cfg.SENTRY_DSN).toBeUndefined();
+  });
+
+  it('accepts a valid https SENTRY_DSN', () => {
+    const dsn = 'https://public@sentry.example.com/123';
+    const cfg = loadConfig({ ...baseDev, SENTRY_DSN: dsn });
+    expect(cfg.SENTRY_DSN).toBe(dsn);
+  });
+
+  it('rejects an http (non-https) SENTRY_DSN', () => {
+    expect(() =>
+      loadConfig({ ...baseDev, SENTRY_DSN: 'http://public@sentry.example.com/123' }),
+    ).toThrow(/SENTRY_DSN must be HTTPS/);
+  });
+
+  it('rejects a SENTRY_DSN that is not a URL at all', () => {
+    expect(() => loadConfig({ ...baseDev, SENTRY_DSN: 'not-a-url' })).toThrow(/SENTRY_DSN/);
+  });
+});
