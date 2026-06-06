@@ -53,10 +53,9 @@ Make the login page **arrive** — the cover composition assembles itself in rou
 import { gsap } from 'gsap';
 import { useGSAP } from '@gsap/react';
 
-// Register the React integration. No other plugins are needed yet.
+// Re-export both. As of @gsap/react 2.x, no `gsap.registerPlugin(useGSAP)` call
+// is needed — the hook manages its own gsap.Context lifecycle.
 // ScrollTrigger, SplitText, etc. are out of scope for this plan.
-gsap.registerPlugin(useGSAP);
-
 export { gsap, useGSAP };
 
 // Motion vocabulary — the only place these numbers live.
@@ -152,10 +151,11 @@ export function createModeSwitchTimeline(
 ```tsx
 import { useRef } from 'react';
 import { gsap, useGSAP } from '../../lib/gsap-setup.js';
-import { createMountEntrance, createModeSwitchTimeline } from '../../lib/animations/login-screen.js';
+import { createMountEntrance, createModeSwitchTimeline, type LoginMode } from '../../lib/animations/login-screen.js';
 // ... existing imports
 
 const cardRef = useRef<HTMLElement>(null);
+const prevModeRef = useRef<LoginMode>('login');
 
 // 1. Mount entrance — runs once, respects reduced motion.
 useGSAP(
@@ -166,9 +166,8 @@ useGSAP(
       const tl = createMountEntrance(cardRef.current);
       tl.play(0);
     });
-    // In reduced motion: do nothing — elements render at their final state
-    // because the existing CSS .field rule (or the React-rendered DOM) shows
-    // them with opacity 1 by default.
+    // In reduced motion: do nothing — elements render at their natural
+    // React/CSS state (opacity 1, transform: none), which is the final state.
     return () => mm.revert();
   },
   { scope: cardRef },
