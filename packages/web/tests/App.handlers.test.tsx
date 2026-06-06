@@ -30,6 +30,7 @@ import {
   sidebarCounts,
   updateAsset,
   softDelete,
+  restore,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
 import type { Asset } from '@dam-link/contracts';
@@ -192,6 +193,37 @@ describe('App DetailPanel handlers — API wiring', () => {
     await user.click(screen.getByRole('button', { name: /移到回收站/ }));
     await waitFor(() => {
       expect(softDelete).toHaveBeenCalledWith('org-1', 'a1');
+    });
+  });
+
+  it('undo (撤销) of soft-delete calls apiRestore to keep server in sync', async () => {
+    // Regression test: pre-ce0a087 the undo was local-only but harmless
+    // because the soft-delete itself was also local-only. Now that the
+    // soft-delete hits the API, a local-only undo would silently revert
+    // on next hydration (server still has deletedAt set).
+    const user = userEvent.setup();
+    vi.mocked(softDelete).mockResolvedValue(makeApiAsset({
+      name: 'undo-me.png',
+      deletedAt: '2026-06-06T10:00:00.000Z',
+    }));
+    vi.mocked(restore).mockResolvedValue(makeApiAsset({
+      name: 'undo-me.png',
+      deletedAt: null,
+    }));
+
+    await mountAppWithAsset(makeApiAsset({ name: 'undo-me.png' }));
+    await selectAsset(user, 'undo-me.png');
+
+    // Trigger soft-delete (no confirm dialog for soft delete — confirm is
+    // only for permanent delete).
+    await user.click(screen.getByRole('button', { name: /移到回收站/ }));
+    // Wait for the toast to appear.
+    await screen.findByText('已移到回收站');
+    // Click the toast's 撤销 action button.
+    await user.click(screen.getByRole('button', { name: /^撤销$/ }));
+
+    await waitFor(() => {
+      expect(restore).toHaveBeenCalledWith('org-1', 'a1');
     });
   });
 });

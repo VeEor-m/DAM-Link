@@ -178,7 +178,20 @@ export default function App() {
       toast.showToast({
         message: '已移到回收站',
         actionLabel: '撤销',
-        onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
+        onAction: () => {
+          if (!undo) return;
+          // Optimistic local restore (clears deletedAt in the store).
+          dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset });
+          // Keep the server in sync; the soft-delete already persisted, so
+          // a local-only undo would silently revert on next hydration.
+          apiRestore(orgId, undo.asset.id).catch(() => {
+            // Best-effort re-soft-delete to keep server in sync with the
+            // failed undo. If that also fails, surface a real error.
+            apiSoftDelete(orgId, undo.asset.id).catch(() => {
+              toast.showToast({ message: '撤销失败,请刷新页面', variant: 'error' });
+            });
+          });
+        },
       });
     } catch {
       dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
@@ -385,7 +398,20 @@ export default function App() {
       toast.showToast({
         message: '已移到回收站',
         actionLabel: '撤销',
-        onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
+        onAction: () => {
+          if (!undo) return;
+          // Optimistic local restore (clears deletedAt in the store).
+          dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset });
+          // Keep the server in sync; the soft-delete already persisted, so
+          // a local-only undo would silently revert on next hydration.
+          apiRestore(orgId, undo.asset.id).catch(() => {
+            // Best-effort re-soft-delete to keep server in sync with the
+            // failed undo. If that also fails, surface a real error.
+            apiSoftDelete(orgId, undo.asset.id).catch(() => {
+              toast.showToast({ message: '撤销失败,请刷新页面', variant: 'error' });
+            });
+          });
+        },
       });
     } catch {
       dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
