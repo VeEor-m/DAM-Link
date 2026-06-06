@@ -18,7 +18,7 @@ vi.mock('../src/api/assets.js', () => ({
   getDownloadUrl: vi.fn(),
   emptyTrash: vi.fn(),
 }));
-vi.mock('../src/api/share-links.js', () => ({ createShareLink: vi.fn() }));
+vi.mock('../src/api/share-links.js', () => ({ createShareLink: vi.fn(), listShareLinks: vi.fn(), revokeShareLink: vi.fn() }));
 
 import App from '../src/App';
 import { StoreProvider } from '../src/state/store';
@@ -34,6 +34,7 @@ import {
   getDownloadUrl,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
+import { createShareLink } from '../src/api/share-links.js';
 import type { Asset } from '@dam-link/contracts';
 
 /** Build an Asset that satisfies the contracts `AssetSchema` (status,
@@ -380,6 +381,63 @@ describe('App — download handler', () => {
     await user.click(screen.getByRole('button', { name: /^下载$/ }));
     await waitFor(() => {
       expect(screen.getByText('下载失败')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('App — copy link handler', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('creates a share link and copies the public URL to clipboard', async () => {
+    const user = userEvent.setup();
+    // Mock clipboard (navigator.clipboard is not in jsdom; property is a getter
+    // so we have to redefine it).
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    vi.mocked(createShareLink).mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      assetId: '11111111-1111-4111-8111-111111111111',
+      orgId: 'org-1',
+      token: 'tok1234567890abcdef',
+      createdBy: 'u1',
+      createdAt: '2026-06-06T00:00:00.000Z',
+      expiresAt: null,
+      revokedAt: null,
+      hasPassword: false,
+    });
+
+    await mountAppWithAsset(makeApiAsset({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'pic.png',
+    }));
+    // Select the asset so DetailPanel renders
+    await selectAsset(user, 'pic.png');
+
+    await user.click(screen.getByRole('button', { name: /复制链接/ }));
+    await waitFor(() => {
+      expect(createShareLink).toHaveBeenCalledWith('org-1', '11111111-1111-4111-8111-111111111111', {});
+    });
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/api/v1/share/tok1234567890abcdef'));
+    expect(screen.getByText('链接已复制')).toBeInTheDocument();
+  });
+
+  it('shows error toast when share-link creation fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(createShareLink).mockRejectedValue(new ApiError(500, 'INTERNAL', 'boom'));
+
+    await mountAppWithAsset(makeApiAsset({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'pic.png',
+    }));
+    await selectAsset(user, 'pic.png');
+
+    await user.click(screen.getByRole('button', { name: /复制链接/ }));
+    await waitFor(() => {
+      expect(screen.getByText('复制失败')).toBeInTheDocument();
     });
   });
 });

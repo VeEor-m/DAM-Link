@@ -40,6 +40,7 @@ import {
   permanentDelete as apiPermanentDelete,
 } from './api/assets.js';
 import { ApiError } from './api/client.js';
+import { createShareLink as apiCreateShareLink } from './api/share-links.js';
 import type { KeymapEntry } from './state/keymap';
 import type { Asset, SidebarSelection } from './state/types';
 import styles from './App.module.css';
@@ -372,15 +373,21 @@ export default function App() {
     }
   }
 
-  function handleCopyLink() {
+  async function handleCopyLink() {
     if (!selected) return;
-    copyToClipboard(`dam-link://asset/${selected.id}`)
-      .then((ok) =>
-        toast.showToast({
-          message: ok ? '链接已复制' : '复制失败',
-          variant: ok ? 'success' : 'error',
-        }),
-      );
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    try {
+      const link = await apiCreateShareLink(orgId, selected.id, {});
+      const url = `${window.location.origin}/api/v1/share/${link.token}`;
+      const ok = await copyToClipboard(url);
+      toast.showToast({
+        message: ok ? '链接已复制' : '复制失败',
+        variant: ok ? 'success' : 'error',
+      });
+    } catch {
+      toast.showToast({ message: '复制失败', variant: 'error' });
+    }
   }
 
   async function handleDownload() {
@@ -403,13 +410,20 @@ export default function App() {
     setMenuAnchor({ asset, x: rect.right, y: rect.bottom, trigger: anchor });
   }
 
-  function menuCopyLink(a: Asset) {
-    copyToClipboard(`dam-link://asset/${a.id}`).then((ok) =>
+  async function menuCopyLink(a: Asset) {
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    try {
+      const link = await apiCreateShareLink(orgId, a.id, {});
+      const url = `${window.location.origin}/api/v1/share/${link.token}`;
+      const ok = await copyToClipboard(url);
       toast.showToast({
         message: ok ? '链接已复制' : '复制失败',
         variant: ok ? 'success' : 'error',
-      }),
-    );
+      });
+    } catch {
+      toast.showToast({ message: '复制失败', variant: 'error' });
+    }
   }
 
   async function menuDelete(a: Asset) {
