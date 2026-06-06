@@ -33,6 +33,12 @@ import { copyToClipboard } from './utils/clipboard';
 import { downloadAsset } from './utils/download';
 import { deleteAsset, emptyTrash, permanentDelete, restoreAsset } from './state/assetOps';
 import { me as apiMe } from './api/auth.js';
+import {
+  updateAsset,
+  softDelete as apiSoftDelete,
+  restore as apiRestore,
+  permanentDelete as apiPermanentDelete,
+} from './api/assets.js';
 import { ApiError } from './api/client.js';
 import type { KeymapEntry } from './state/keymap';
 import type { Asset, SidebarSelection } from './state/types';
@@ -132,6 +138,8 @@ export default function App() {
 
   async function handleDelete() {
     if (!selected) return;
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
     if (selected.deletedAt) {
       // Permanent delete with confirm
       const ok = await confirm({
@@ -142,13 +150,22 @@ export default function App() {
         danger: true,
       });
       if (!ok) return;
-      const { nextState } = permanentDelete({ assets: state.assets, ui: state.ui }, selected.id);
+      const before = state.assets;
+      const { nextState } = permanentDelete({ assets: before, ui: state.ui }, selected.id);
       dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-      toast.showToast({ message: '已永久删除', variant: 'success' });
+      try {
+        await apiPermanentDelete(orgId, selected.id);
+        toast.showToast({ message: '已永久删除', variant: 'success' });
+      } catch {
+        dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+        toast.showToast({ message: '永久删除失败', variant: 'error' });
+      }
       return;
     }
+    // Soft delete (to trash)
+    const before = state.assets;
     const { nextState, undo } = deleteAsset(
-      { assets: state.assets, ui: state.ui },
+      { assets: before, ui: state.ui },
       selected.id,
       new Date(),
     );
@@ -156,11 +173,81 @@ export default function App() {
       type: 'HYDRATE_STATE',
       state: { assets: nextState.assets, ui: { ...nextState.ui, selectedAssetId: null } },
     });
-    toast.showToast({
-      message: '已移到回收站',
-      actionLabel: '撤销',
-      onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
-    });
+    try {
+      await apiSoftDelete(orgId, selected.id);
+      toast.showToast({
+        message: '已移到回收站',
+        actionLabel: '撤销',
+        onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
+      });
+    } catch {
+      dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+      toast.showToast({ message: '移到回收站失败', variant: 'error' });
+    }
+  }
+
+  async function handleRename(name: string) {
+    if (!selected) return;
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    const oldName = selected.name;
+    if (name === oldName) return;
+    dispatch({ type: 'RENAME_ASSET', id: selected.id, name });
+    try {
+      const updated = await updateAsset(orgId, selected.id, { name });
+      dispatch({ type: 'UPDATE_ASSET', id: selected.id, patch: { name: updated.name } });
+    } catch {
+      dispatch({ type: 'RENAME_ASSET', id: selected.id, name: oldName });
+      toast.showToast({ message: '重命名失败', variant: 'error' });
+    }
+  }
+
+  async function handleAddTag(tag: string) {
+    if (!selected) return;
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    const trimmed = tag.trim();
+    if (!trimmed || selected.tags.includes(trimmed)) return;
+    const oldTags = selected.tags;
+    dispatch({ type: 'ADD_TAG', id: selected.id, tag: trimmed });
+    try {
+      const updated = await updateAsset(orgId, selected.id, { tags: [...oldTags, trimmed] });
+      dispatch({ type: 'UPDATE_ASSET', id: selected.id, patch: { tags: updated.tags } });
+    } catch {
+      dispatch({ type: 'UPDATE_ASSET', id: selected.id, patch: { tags: oldTags } });
+      toast.showToast({ message: '添加标签失败', variant: 'error' });
+    }
+  }
+
+  async function handleRemoveTag(tag: string) {
+    if (!selected) return;
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    const oldTags = selected.tags;
+    if (!oldTags.includes(tag)) return;
+    dispatch({ type: 'REMOVE_TAG', id: selected.id, tag });
+    try {
+      const updated = await updateAsset(orgId, selected.id, { tags: oldTags.filter((t) => t !== tag) });
+      dispatch({ type: 'UPDATE_ASSET', id: selected.id, patch: { tags: updated.tags } });
+    } catch {
+      dispatch({ type: 'UPDATE_ASSET', id: selected.id, patch: { tags: oldTags } });
+      toast.showToast({ message: '删除标签失败', variant: 'error' });
+    }
+  }
+
+  async function handleToggleFavorite(a: Asset) {
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    const newVal = !a.favorite;
+    // Optimistic local flip — works for both the card UI and the detail panel.
+    dispatch({ type: 'UPDATE_ASSET', id: a.id, patch: { favorite: newVal } });
+    try {
+      const updated = await updateAsset(orgId, a.id, { favorite: newVal });
+      dispatch({ type: 'UPDATE_ASSET', id: a.id, patch: { favorite: updated.favorite } });
+    } catch {
+      dispatch({ type: 'UPDATE_ASSET', id: a.id, patch: { favorite: a.favorite } });
+      toast.showToast({ message: '操作失败', variant: 'error' });
+    }
   }
 
   async function handleEmptyTrash() {
@@ -257,6 +344,8 @@ export default function App() {
   }
 
   async function menuDelete(a: Asset) {
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
     if (a.deletedAt) {
       const ok = await confirm({
         title: '永久删除',
@@ -266,38 +355,62 @@ export default function App() {
         danger: true,
       });
       if (!ok) return;
-      const { nextState } = permanentDelete({ assets: state.assets, ui: state.ui }, a.id);
+      const before = state.assets;
+      const { nextState } = permanentDelete({ assets: before, ui: state.ui }, a.id);
       dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-      toast.showToast({ message: '已永久删除', variant: 'success' });
+      try {
+        await apiPermanentDelete(orgId, a.id);
+        toast.showToast({ message: '已永久删除', variant: 'success' });
+      } catch {
+        dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+        toast.showToast({ message: '永久删除失败', variant: 'error' });
+      }
       return;
     }
-    const { nextState, undo } = deleteAsset({ assets: state.assets, ui: state.ui }, a.id, new Date());
+    const before = state.assets;
+    const { nextState, undo } = deleteAsset({ assets: before, ui: state.ui }, a.id, new Date());
     dispatch({
       type: 'HYDRATE_STATE',
       state: {
         assets: nextState.assets,
         ui: {
           ...nextState.ui,
-          selectedAssetId: state.ui.selectedAssetId === a.id ? null : state.ui.selectedAssetId,
+          selectedAssetId:
+            state.ui.selectedAssetId === a.id ? null : state.ui.selectedAssetId,
         },
       },
     });
-    toast.showToast({
-      message: '已移到回收站',
-      actionLabel: '撤销',
-      onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
-    });
+    try {
+      await apiSoftDelete(orgId, a.id);
+      toast.showToast({
+        message: '已移到回收站',
+        actionLabel: '撤销',
+        onAction: () => undo && dispatch({ type: 'UPDATE_ASSET', id: undo.asset.id, patch: undo.asset }),
+      });
+    } catch {
+      dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+      toast.showToast({ message: '移到回收站失败', variant: 'error' });
+    }
   }
 
-  function menuRestore(a: Asset) {
+  async function menuRestore(a: Asset) {
     if (!a.deletedAt) return;
-    const { nextState } = restoreAsset({ assets: state.assets, ui: state.ui }, a.id);
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    const before = state.assets;
+    const { nextState } = restoreAsset({ assets: before, ui: state.ui }, a.id);
     dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-    toast.showToast({ message: '已恢复', variant: 'success' });
+    try {
+      await apiRestore(orgId, a.id);
+      toast.showToast({ message: '已恢复', variant: 'success' });
+    } catch {
+      dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+      toast.showToast({ message: '恢复失败', variant: 'error' });
+    }
   }
 
   function menuToggleFavorite(a: Asset) {
-    dispatch({ type: 'TOGGLE_FAVORITE', id: a.id });
+    void handleToggleFavorite(a);
   }
 
   function menuDownload(a: Asset) {
@@ -315,7 +428,7 @@ export default function App() {
       { key: '1', scope: 'global', description: '切换到网格视图', handler: () => dispatch({ type: 'SET_VIEW_MODE', mode: 'grid' }) },
       { key: '2', scope: 'global', description: '切换到列表视图', handler: () => dispatch({ type: 'SET_VIEW_MODE', mode: 'list' }) },
       { key: 'u', scope: 'global', description: '打开上传对话框', handler: () => dispatch({ type: 'SET_UPLOAD_DIALOG', open: true }) },
-      { key: 'f', scope: 'global', description: '收藏 / 取消收藏', handler: () => selected && dispatch({ type: 'TOGGLE_FAVORITE', id: selected.id }) },
+      { key: 'f', scope: 'global', description: '收藏 / 取消收藏', handler: () => selected && handleToggleFavorite(selected) },
       { key: 'Delete', scope: 'global', description: '移到回收站', handler: () => handleDelete() },
       { key: 'Backspace', scope: 'global', description: '移到回收站', handler: () => handleDelete() },
       { key: 'ArrowDown', scope: 'global', description: '选择下一个资产', handler: () => navigateAsset(1) },
@@ -433,21 +546,14 @@ export default function App() {
           <DetailPanel
             asset={selected}
             variant={detailVariant}
-            onToggleFavorite={() =>
-              selected && dispatch({ type: 'TOGGLE_FAVORITE', id: selected.id })
-            }
+            onToggleFavorite={() => selected && handleToggleFavorite(selected)}
             onDelete={handleDelete}
             onCopyLink={handleCopyLink}
             onDownload={handleDownload}
-            onRename={(name) => selected && dispatch({ type: 'RENAME_ASSET', id: selected.id, name })}
-            onAddTag={(tag) => selected && dispatch({ type: 'ADD_TAG', id: selected.id, tag })}
-            onRemoveTag={(tag) => selected && dispatch({ type: 'REMOVE_TAG', id: selected.id, tag })}
-            onRestore={() => {
-              if (!selected) return;
-              const { nextState } = restoreAsset({ assets: state.assets, ui: state.ui }, selected.id);
-              dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-              toast.showToast({ message: '已恢复', variant: 'success' });
-            }}
+            onRename={handleRename}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            onRestore={() => selected && menuRestore(selected)}
             onClose={() => dispatch({ type: 'SELECT_ASSET', id: null })}
           />
         }
@@ -476,21 +582,14 @@ export default function App() {
           <DetailPanel
             asset={selected}
             variant="sheet"
-            onToggleFavorite={() =>
-              selected && dispatch({ type: 'TOGGLE_FAVORITE', id: selected.id })
-            }
+            onToggleFavorite={() => selected && handleToggleFavorite(selected)}
             onDelete={handleDelete}
             onCopyLink={handleCopyLink}
             onDownload={handleDownload}
-            onRename={(name) => selected && dispatch({ type: 'RENAME_ASSET', id: selected.id, name })}
-            onAddTag={(tag) => selected && dispatch({ type: 'ADD_TAG', id: selected.id, tag })}
-            onRemoveTag={(tag) => selected && dispatch({ type: 'REMOVE_TAG', id: selected.id, tag })}
-            onRestore={() => {
-              if (!selected) return;
-              const { nextState } = restoreAsset({ assets: state.assets, ui: state.ui }, selected.id);
-              dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-              toast.showToast({ message: '已恢复', variant: 'success' });
-            }}
+            onRename={handleRename}
+            onAddTag={handleAddTag}
+            onRemoveTag={handleRemoveTag}
+            onRestore={() => selected && menuRestore(selected)}
             onClose={closeSheet}
           />
         </BottomSheet>
