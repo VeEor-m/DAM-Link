@@ -8,8 +8,6 @@ import {
   type LoginMode,
 } from '../../lib/animations/login-screen.js';
 import styles from './LoginScreen.module.css';
-// createModeSwitchTimeline is wired in T6.
-void createModeSwitchTimeline;
 
 const COPY = {
   login: {
@@ -42,10 +40,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
   const [busy, setBusy] = useState(false);
 
   const cardRef = useRef<HTMLElement>(null);
-  // Read by the mode-switch useGSAP (wired in T6). Tracked via ref because
-  // `useGSAP`'s `dependencies` array does not expose the previous value.
   const prevModeRef = useRef<LoginMode>('login');
-  void prevModeRef;
 
   // Mount entrance — runs once on mount, gated on prefers-reduced-motion.
   useGSAP(
@@ -58,6 +53,20 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
       return () => mm.revert();
     },
     { scope: cardRef },
+  );
+
+  // Mode switch — replays when `mode` changes.
+  useGSAP(
+    () => {
+      if (!cardRef.current) return;
+      // useGSAP's dependencies array doesn't expose the previous value, so we
+      // track it via prevModeRef. The first invocation has prevModeRef.current
+      // === mode (both 'login'), so createModeSwitchTimeline returns an empty
+      // timeline — no double-animation with the mount entrance.
+      createModeSwitchTimeline(cardRef.current, prevModeRef.current, mode).play(0);
+      prevModeRef.current = mode;
+    },
+    { scope: cardRef, dependencies: [mode] },
   );
 
   const copy = COPY[mode];

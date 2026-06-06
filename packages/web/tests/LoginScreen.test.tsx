@@ -9,17 +9,18 @@ vi.mock('../src/api/auth.js', () => ({
   register: vi.fn(),
 }));
 
-vi.mock('../src/lib/animations/login-screen.js', () => ({
-  createMountEntrance: vi.fn(() => ({ play: vi.fn() })),
-  createModeSwitchTimeline: vi.fn(),
-}));
+vi.mock('../src/lib/animations/login-screen.js', async () => {
+  const { gsap } = await import('gsap');
+  return {
+    createMountEntrance: vi.fn(() => gsap.timeline({ paused: true })),
+    createModeSwitchTimeline: vi.fn(() => gsap.timeline({ paused: true })),
+  };
+});
 
 import { login as apiLogin, register as apiRegister } from '../src/api/auth.js';
 import { ApiError } from '../src/api/client.js';
 import * as loginScreenAnimations from '../src/lib/animations/login-screen.js';
-import { gsap } from 'gsap';
-// gsap is reserved for the mode-switch / reduced-motion tests in T6/T10.
-void gsap;
+import { gsap } from '../src/lib/gsap-setup.js';
 
 describe('LoginScreen default render (T1)', () => {
   beforeEach(() => {
@@ -319,5 +320,73 @@ describe('LoginScreen GSAP mount entrance (T5)', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(loginScreenAnimations.createMountEntrance).not.toHaveBeenCalled();
+  });
+});
+
+describe('LoginScreen GSAP mode switch (T6)', () => {
+  let originalMatchMedia: typeof window.matchMedia;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    originalMatchMedia = window.matchMedia;
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  function mockMatchMedia(matches: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+    }));
+  }
+
+  it('calls createModeSwitchTimeline when the user clicks the mode switch', async () => {
+    mockMatchMedia(true);
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+
+    // Wait for the initial mount to finish wiring.
+    await waitFor(() => {
+      expect(loginScreenAnimations.createMountEntrance).toHaveBeenCalledTimes(1);
+    });
+
+    // Click the mode switch (login -> register).
+    await user.click(screen.getByRole('button', { name: /^register$/i }));
+
+    await waitFor(() => {
+      expect(loginScreenAnimations.createModeSwitchTimeline).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        'login',
+        'register',
+      );
+    });
+  });
+
+  it('cleans up the GSAP context on unmount (no leftover timelines)', async () => {
+    mockMatchMedia(true);
+    const { unmount } = render(<LoginScreen onSuccess={() => {}} />);
+
+    await waitFor(() => {
+      expect(loginScreenAnimations.createMountEntrance).toHaveBeenCalledTimes(1);
+    });
+
+    const timelineCountBeforeUnmount = gsap.globalTimeline.getChildren(true, true, true).length;
+    expect(timelineCountBeforeUnmount).toBeGreaterThan(0);
+
+    unmount();
+
+    // useGSAP reverts its context on unmount, killing all tweens created within.
+    await waitFor(() => {
+      const timelineCountAfterUnmount = gsap.globalTimeline.getChildren(true, true, true).length;
+      expect(timelineCountAfterUnmount).toBeLessThan(timelineCountBeforeUnmount);
+    });
   });
 });
