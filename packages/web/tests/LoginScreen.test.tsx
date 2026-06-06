@@ -9,6 +9,8 @@ vi.mock('../src/api/auth.js', () => ({
   register: vi.fn(),
 }));
 
+import { login as apiLogin, register as apiRegister } from '../src/api/auth.js';
+
 describe('LoginScreen default render (T1)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -72,5 +74,59 @@ describe('LoginScreen mode switching (T2)', () => {
     expect(
       screen.getByRole('button', { name: /^sign in$/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe('LoginScreen client-side validation (T3)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('blocks submit on empty email and does not call the API', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/email is required/i);
+    expect(apiLogin).not.toHaveBeenCalled();
+  });
+
+  it('blocks submit on invalid email format', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+    await user.type(screen.getByLabelText(/^email$/i), 'not-an-email');
+    await user.type(screen.getByLabelText(/^password$/i), 'longenoughpassword');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/doesn't look like an email/i);
+    expect(apiLogin).not.toHaveBeenCalled();
+  });
+
+  it('blocks submit on empty password', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+    await user.type(screen.getByLabelText(/^email$/i), 'me@studio.com');
+    await user.click(screen.getByRole('button', { name: /^sign in\s*→?$/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/password is required/i);
+    expect(apiLogin).not.toHaveBeenCalled();
+  });
+
+  it('blocks register submit on empty name and short password', async () => {
+    const user = userEvent.setup();
+    render(<LoginScreen onSuccess={() => {}} />);
+    await user.click(screen.getByRole('button', { name: /^register$/i }));
+
+    // Fill name + email but a 3-char password.
+    await user.type(screen.getByLabelText(/^name$/i), 'Alex');
+    await user.type(screen.getByLabelText(/^email$/i), 'alex@studio.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'abc');
+    await user.click(
+      screen.getByRole('button', { name: /^create account\s*→?$/i }),
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/at least 8 characters/i);
+    expect(apiRegister).not.toHaveBeenCalled();
   });
 });
