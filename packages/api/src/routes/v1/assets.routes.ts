@@ -15,6 +15,7 @@ import {
   permanentDelete,
   emptyTrashForOrg,
   getSidebarCounts,
+  getDownloadUrl,
 } from '../../services/assets.service.js';
 import { finalizeUpload } from '../../services/uploads.service.js';
 import { requireUser } from '../../plugins/auth.js';
@@ -221,6 +222,38 @@ export async function registerAssetRoutes(app: App): Promise<void> {
       const { id } = req.params as { id: string };
       const asset = await getAsset(req.orgContext!.org.id, id);
       return { data: asset };
+    },
+  );
+
+  // GET /api/v1/orgs/:orgId/assets/:id/download-url — Viewer+
+  app.get(
+    '/api/v1/orgs/:orgId/assets/:id/download-url',
+    {
+      preHandler: [requireUser, requireRole('viewer')],
+      schema: {
+        response: {
+          200: {
+            type: 'object' as const,
+            properties: {
+              data: {
+                type: 'object' as const,
+                properties: {
+                  downloadUrl: { type: 'string' as const, format: 'uri' },
+                },
+                required: ['downloadUrl'],
+              },
+            },
+            required: ['data'],
+          },
+        },
+        tags: ['assets'],
+        summary: 'Get a presigned download URL for the asset (15-minute TTL)',
+      },
+    },
+    async (req) => {
+      const { id } = req.params as { id: string };
+      const result = await getDownloadUrl(req.orgContext!.org.id, id);
+      return { data: result };
     },
   );
 

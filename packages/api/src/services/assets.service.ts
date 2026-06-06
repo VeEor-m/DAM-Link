@@ -146,3 +146,16 @@ export async function getSidebarCounts(orgId: string): Promise<SidebarCounts> {
   ]);
   return { byType, byTag, favorites, trash };
 }
+
+/** Presign a 15-minute GET URL for an asset's original object. Throws ASSET_NOT_FOUND if missing or trashed. */
+export async function getDownloadUrl(
+  orgId: string,
+  id: string,
+): Promise<{ downloadUrl: string }> {
+  const a = await findAssetById(orgId, id);
+  if (!a || a.deletedAt) {
+    throw new AppError(404, 'ASSET_NOT_FOUND', 'Asset not found');
+  }
+  const downloadUrl = await presignGet(a.objectKey, 15 * 60);
+  return { downloadUrl };
+}
