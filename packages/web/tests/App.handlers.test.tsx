@@ -31,6 +31,7 @@ import {
   updateAsset,
   softDelete,
   restore,
+  getDownloadUrl,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
 import type { Asset } from '@dam-link/contracts';
@@ -331,6 +332,54 @@ describe('App DetailPanel handlers — API wiring', () => {
 
     await waitFor(() => {
       expect(restore).toHaveBeenCalledWith('org-1', 'a1');
+    });
+  });
+});
+
+describe('App — download handler', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('download fetches the presigned URL and triggers an <a download> click', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getDownloadUrl).mockResolvedValue({ downloadUrl: 'https://cdn/x.png?sig=abc' });
+
+    await mountAppWithAsset(makeApiAsset({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'pic.png',
+    }));
+    await selectAsset(user, 'pic.png');
+
+    // Spy on the createElement('a') click. Set up AFTER mount so the spy
+    // only intercepts calls made by the download flow (not by anything
+    // the app may have created during initial render).
+    const clickSpy = vi.fn();
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag);
+      if (tag === 'a') (el as HTMLAnchorElement).click = clickSpy;
+      return el;
+    });
+
+    await user.click(screen.getByRole('button', { name: /^下载$/ }));
+    await waitFor(() => {
+      expect(getDownloadUrl).toHaveBeenCalledWith('org-1', '11111111-1111-4111-8111-111111111111');
+    });
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('download shows error toast when getDownloadUrl fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getDownloadUrl).mockRejectedValue(new ApiError(500, 'INTERNAL', 'boom'));
+
+    await mountAppWithAsset(makeApiAsset({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'pic.png',
+    }));
+    await selectAsset(user, 'pic.png');
+
+    await user.click(screen.getByRole('button', { name: /^下载$/ }));
+    await waitFor(() => {
+      expect(screen.getByText('下载失败')).toBeInTheDocument();
     });
   });
 });

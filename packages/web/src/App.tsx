@@ -383,9 +383,18 @@ export default function App() {
       );
   }
 
-  function handleDownload() {
+  async function handleDownload() {
     if (!selected) return;
-    downloadAsset(selected);
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    try {
+      await downloadAsset(selected, orgId);
+    } catch {
+      toast.showToast({
+        message: '下载失败',
+        variant: 'error',
+      });
+    }
   }
 
   // ── Kebab context menu (per-row, operates on the row's asset) ───────
@@ -487,7 +496,11 @@ export default function App() {
   }
 
   function menuDownload(a: Asset) {
-    downloadAsset(a);
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    downloadAsset(a, orgId).catch(() => {
+      toast.showToast({ message: '下载失败', variant: 'error' });
+    });
   }
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────
