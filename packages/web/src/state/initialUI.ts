@@ -22,4 +22,5 @@ export const initialUI: UIState = {
   selectedIds: [],
   sortKey: 'date',
   sortDir: 'desc',
+  activeOrgId: null,
 };

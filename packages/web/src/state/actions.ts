@@ -55,5 +55,6 @@ interface AppState {
     selectedIds: string[];
     sortKey: SortKey;
     sortDir: SortDir;
+    activeOrgId: string | null;
   };
 }

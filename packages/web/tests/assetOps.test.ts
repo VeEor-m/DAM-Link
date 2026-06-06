@@ -22,6 +22,7 @@ const baseState: AppState = {
     selectedIds: [],
     sortKey: 'date',
     sortDir: 'desc',
+    activeOrgId: null,
   },
 };
 
