@@ -4,7 +4,6 @@ import { AssetCard } from './AssetCard';
 import { EmptyState } from '../common/EmptyState';
 import { gsap, useGSAP } from '../../lib/gsap-setup.js';
 import { createAssetGridStagger } from '../../lib/animations/asset-grid.js';
-import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import styles from './AssetGrid.module.css';
 
 interface AssetGridProps {
@@ -50,13 +49,15 @@ export function AssetGrid({
   onToggleMultiSelect,
 }: AssetGridProps) {
   const gridRef = useRef<HTMLDivElement>(null);
-  const isFirstMount = useIsFirstMount();
+  const hasFiredRef = useRef(false);
 
   // Replay per-card stagger on user-initiated `assets` changes (search /
-  // filter / sidebar click). First invocation is gated by useIsFirstMount —
-  // the AppShell mount already animated the initial cards, so the first
-  // dep change should be a no-op. Gated by prefers-reduced-motion via
-  // gsap.matchMedia so the no-motion branch is a no-op.
+  // filter / sidebar click). The first time the body runs AND finds cards
+  // is gated out via hasFiredRef — the AppShell mount already animated
+  // the initial cards, so that first non-empty body run should be a
+  // no-op. Subsequent `assets` changes replay the stagger. Gated by
+  // prefers-reduced-motion via gsap.matchMedia so the no-motion branch
+  // is a no-op.
   useGSAP(
     () => {
       if (!gridRef.current) return;
@@ -64,13 +65,21 @@ export function AssetGrid({
         gridRef.current.querySelectorAll<HTMLElement>('[data-anim="card"]'),
       );
       if (cards.length === 0) return;
+      // Skip the first time the body runs with cards — the AppShell
+      // mount already animated the initial cards. Subsequent user-
+      // initiated `assets` changes (search/filter/sidebar click)
+      // replay the stagger.
+      if (!hasFiredRef.current) {
+        hasFiredRef.current = true;
+        return;
+      }
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
         createAssetGridStagger(gridRef.current!, cards).play(0);
       });
       return () => mm.revert();
     },
-    { scope: gridRef, dependencies: [assets, isFirstMount] },
+    { scope: gridRef, dependencies: [assets] },
   );
 
   if (assets.length === 0) {
