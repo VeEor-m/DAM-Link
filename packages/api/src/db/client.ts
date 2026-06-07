@@ -13,12 +13,17 @@ export function getDb(): DB {
   if (cached) return cached;
   const config = loadConfig();
   cachedSql = postgres(config.DATABASE_URL, {
-    max: 10,
+    max: config.DB_POOL_MAX,
     idle_timeout: 30,
     connect_timeout: 5,
   });
   cached = drizzle(cachedSql, { schema });
   return cached;
+}
+
+/** Returns the configured max pool size. Exposed for /healthz. */
+export function getDbPoolMax(): number {
+  return loadConfig().DB_POOL_MAX;
 }
 
 /** Test-only — closes the pool and clears the cache. */
