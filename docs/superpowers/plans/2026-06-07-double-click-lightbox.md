@@ -449,6 +449,8 @@ git commit -m "feat(web): AssetListRow accepts onDoubleClick; Enter mirrors dblc
 
 Same shape as AssetListRow. The row is the `<div role="listitem">`, the focusable element is the select `<button>`.
 
+**Naming note:** StackedCardList is a leaf (its row is inlined in the component, not a separate component like `AssetListRow`). To keep its prop interface consistent with its only caller `AssetList` (which forwards `onOpen(id)` from `App.tsx`), StackedCardList exposes `onOpen?: (id: string) => void` rather than `onDoubleClick?: () => void`. The two are equivalent; this is a naming alignment with the parent's contract.
+
 - [ ] **Step 1: Write the failing tests**
 
 Create `packages/web/tests/StackedCardList.dblclick.test.tsx`:
@@ -1112,6 +1114,15 @@ Also run the full web test suite to catch any indirect breakage:
 Run: `cd packages/web && npx vitest run`
 Expected: all web tests pass (the pre-Plan-21 count was 316; this run should report 316 + 19 new = 335).
 
+Run typecheck and lint:
+
+```bash
+cd packages/web && npx tsc -b --noEmit
+cd packages/web && pnpm lint
+```
+
+Expected: 0 errors, 0 new warnings (the pre-Plan-21 lint count should be unchanged).
+
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -1160,15 +1171,14 @@ Create `docs/superpowers/plans/screenshots/P21/verify.py` based on the Plan 20 s
 - Switch to grid view (press `1`), **double-click** the document card → screenshot `p21-grid-dblclick-document.png`. Assert: Lightbox absent, DetailPanel visible with the document.
 - Resize viewport to 480×800 (phone), reload, **double-click** the image card → screenshot `p21-phone-dblclick-image.png`. Assert: Lightbox present.
 
-The full script follows the Playwright + requests + Pillow pattern used in `screenshots/P18/verify.py` and `screenshots/P20/verify.py`. Read those first to understand the helper structure (`bootstrap_org` etc.), then adapt.
+The full script follows the Playwright + requests + Pillow pattern used in `docs/superpowers/plans/screenshots/P20/verify.py` (the most recent one). **Read that file first**, then adapt it for the 6 P21 cases below. The P20 script already contains the `bootstrap_org` helper (real `POST /auth/register` + `POST /orgs` + draft/finalize for an image + a document) — copy it verbatim and only change the case loop.
 
-Skeleton:
+Skeleton (copied from P20 with the case loop replaced):
 
 ```python
 """Plan 21 visual verification — double-click to open lightbox."""
 from __future__ import annotations
 import json
-import time
 from pathlib import Path
 import requests
 from playwright.sync_api import sync_playwright, expect
@@ -1177,26 +1187,93 @@ API = "http://localhost:3000"
 WEB = "http://localhost:5173"
 OUT = Path(__file__).parent
 
-def bootstrap_org() -> tuple[str, str, str]:
-    """Create a real user + org, upload 1 image + 1 document, return (email, password, orgId)."""
-    # POST /auth/register, /orgs, /assets/draft, /assets/finalize, ...
-    # Return cookie + orgId + the two asset ids.
-    ...
+# === COPY bootstrap_org() VERBATIM FROM P20 ===
+# (registers user, creates org, uploads 1 image + 1 document,
+#  returns (email, password, org_id, image_id, doc_id))
 
 def main() -> int:
     email, password, org_id, image_id, doc_id = bootstrap_org()
     results: list[dict] = []
 
+    def record(name: str, passed: bool, details: str) -> None:
+        results.append({"name": name, "passed": passed, "details": details})
+
     with sync_playwright() as p:
         browser = p.chromium.launch()
         ctx = browser.new_context(viewport={"width": 1440, "height": 900})
         page = ctx.new_page()
-        page.goto(WEB)
-        # ... login, navigate, drive the 6 cases
-        # ... append {"name": "p21-...", "passed": bool, "details": str} to `results`
+        # ... login via API or UI, then navigate to the assets list ...
+
+        # Case 1: single-click image → DetailPanel visible, no Lightbox
+        img_card = page.get_by_role("button", name=__import__("re").compile("image filename", __import__("re").I))
+        img_card.click()
+        page.wait_for_timeout(50)
+        record(
+            "p21-grid-click-image",
+            page.locator('[data-testid="lightbox"]').count() == 0
+              and page.get_by_title("点击重命名").count() > 0,
+            "image card single-click should reveal DetailPanel without opening Lightbox",
+        )
+
+        # Case 2: double-click same image → Lightbox full-screen
+        img_card.dblclick()
+        record(
+            "p21-grid-dblclick-image",
+            page.locator('[data-testid="lightbox"]').count() == 1,
+            "image card dblclick should open Lightbox",
+        )
+
+        # Case 3: close the Lightbox → DetailPanel still visible
+        page.get_by_test_id("lightbox-floating-close").click()
+        page.wait_for_timeout(50)
+        record(
+            "p21-grid-dblclick-then-close",
+            page.locator('[data-testid="lightbox"]').count() == 0
+              and page.get_by_title("点击重命名").count() > 0,
+            "after closing Lightbox, DetailPanel should still show the image",
+        )
+
+        # Case 4: list view + dblclick image row → Lightbox full-screen
+        page.keyboard.press("2")  # switch to list view
+        page.wait_for_timeout(200)
+        page.get_by_role("button", name=__import__("re").compile("选择 " + "image filename", __import__("re").I)).first.dblclick()
+        record(
+            "p21-list-dblclick-image",
+            page.locator('[data-testid="lightbox"]').count() == 1,
+            "list view dblclick on image row should open Lightbox",
+        )
+        page.get_by_test_id("lightbox-floating-close").click()
+
+        # Case 5: dblclick document card → no Lightbox, DetailPanel shows document
+        page.keyboard.press("1")  # back to grid view
+        page.wait_for_timeout(200)
+        page.get_by_role("button", name=__import__("re").compile("document filename", __import__("re").I)).dblclick()
+        page.wait_for_timeout(50)
+        record(
+            "p21-grid-dblclick-document",
+            page.locator('[data-testid="lightbox"]').count() == 0
+              and page.get_by_title("点击重命名").count() > 0,
+            "document card dblclick should NOT open Lightbox; DetailPanel should show the document",
+        )
+
+        # Case 6: phone viewport + dblclick image card → Lightbox full-screen
+        page.set_viewport_size({"width": 480, "height": 800})
+        page.reload()
+        page.wait_for_load_state("networkidle")
+        page.get_by_role("button", name=__import__("re").compile("image filename", __import__("re").I)).dblclick()
+        record(
+            "p21-phone-dblclick-image",
+            page.locator('[data-testid="lightbox"]').count() == 1,
+            "phone viewport dblclick on image card should open Lightbox",
+        )
+
         browser.close()
 
-    report = {"results": results, "total": len(results), "passed": sum(r["passed"] for r in results)}
+    report = {
+        "results": results,
+        "total": len(results),
+        "passed": sum(r["passed"] for r in results),
+    }
     (OUT / "p21-report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
     return 0 if report["passed"] == report["total"] else 1
 
