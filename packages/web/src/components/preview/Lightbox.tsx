@@ -6,6 +6,9 @@ import { MediaStage } from './MediaStage.js';
 import { NeighborStrip, type NeighborItem } from './NeighborStrip.js';
 import styles from './Lightbox.module.css';
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export interface LightboxProps {
   asset: Asset | null;
   neighbors: NeighborItem[];
@@ -34,20 +37,44 @@ export function Lightbox(props: LightboxProps) {
     if (!asset) return;
     const prev = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
-    return () => { prev?.focus(); };
+    return () => {
+      const target = prev;
+      if (target && document.contains(target)) {
+        target.focus();
+      } else {
+        document.body.focus();
+      }
+    };
   }, [asset]);
 
-  // Window-level keydown for ←/→/Esc.
+  // Window-level keydown for ←/→/Esc + Tab focus trap.
   useEffect(() => {
     if (!asset) return;
+    const onKeyDown = lb.onKeyDown;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      lb.onKeyDown(e);
+      if (e.key === 'Tab') {
+        const el = dialogRef.current;
+        if (!el) return;
+        const items = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE));
+        if (items.length === 0) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+        return;
+      }
+      onKeyDown(e);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [asset, lb]);
+  }, [asset, lb.onKeyDown]);
 
   if (!asset) return null;
 
@@ -65,6 +92,15 @@ export function Lightbox(props: LightboxProps) {
       className={styles.root}
       data-testid="lightbox"
     >
+      <button
+        type="button"
+        className={styles.floatingClose}
+        aria-label="关闭预览"
+        data-testid="lightbox-floating-close"
+        onClick={onClose}
+      >
+        ✕
+      </button>
       <header className={headerClass}>
         <div className={styles.headerLeft}>
           <h2 id="lightbox-filename" className={styles.filename}>{asset.name}</h2>

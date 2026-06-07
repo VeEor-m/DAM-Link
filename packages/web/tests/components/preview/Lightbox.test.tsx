@@ -27,10 +27,10 @@ beforeEach(() => {
 
 describe('Lightbox', () => {
   it('renders nothing when asset is null', () => {
-    const { container } = render(
+    render(
       <Lightbox asset={null} neighbors={[]} visibleIds={[]} orgId="o1" onNavigate={() => {}} onClose={() => {}} onToggleFavorite={() => {}} onDownload={() => {}} />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('renders the filename in the header', () => {
@@ -44,7 +44,7 @@ describe('Lightbox', () => {
     render(
       <Lightbox asset={asset} neighbors={neighbors} visibleIds={['0','1','2']} orgId="o1" onNavigate={() => {}} onClose={() => {}} onToggleFavorite={() => {}} onDownload={() => {}} />,
     );
-    expect(screen.getByRole('button', { name: '关闭预览' })).toBeInTheDocument();
+    expect(screen.getByTestId('lightbox-floating-close')).toBeInTheDocument();
   });
 
   it('clicking close calls onClose', () => {
@@ -52,7 +52,7 @@ describe('Lightbox', () => {
     render(
       <Lightbox asset={asset} neighbors={neighbors} visibleIds={['0','1','2']} orgId="o1" onNavigate={() => {}} onClose={fn} onToggleFavorite={() => {}} onDownload={() => {}} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '关闭预览' }));
+    fireEvent.click(screen.getByTestId('lightbox-floating-close'));
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
