@@ -38,6 +38,9 @@ function DispatchProbe({ bag }: { bag: { refs: Dispatch<Action>[] } }) {
   const { state, dispatch } = useStore();
   useEffect(() => {
     bag.refs.push(dispatch);
+    // bag is a stable prop in this test — we depend on state + dispatch
+    // to re-run on every reducer action, then capture the current dispatch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, dispatch]);
   return null;
 }
