@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Modal } from '../common/Modal';
 import { DropZone } from './DropZone';
 import { useUpload } from '../../hooks/useUpload';
+import { useStore } from '../../hooks/useStore';
+import { useToast } from '../common/ToastProvider';
+import { getAsset } from '../../api/assets.js';
 import { listMyOrgs, createOrg } from '../../api/orgs.js';
+import { apiAssetToLocal } from '../../state/assetAdapter';
 import { formatSize } from '../../utils/format';
 import styles from './UploadDialog.module.css';
 
@@ -130,7 +134,27 @@ interface BodyProps {
 }
 
 function UploadDialogBody({ orgId, onClose }: BodyProps) {
-  const { items, uploadMany } = useUpload(orgId);
+  const { dispatch } = useStore();
+  const toast = useToast();
+  const { items, uploadMany } = useUpload(orgId, {
+    onUploaded: (serverId) => {
+      // The upload already succeeded on the server. Fetch the full asset so we
+      // can add it to the local store without a full page reload. If the fetch
+      // fails (e.g. user lost session, server hiccup), show a toast so the
+      // user knows to refresh manually — the file is still safely uploaded.
+      void getAsset(orgId, serverId)
+        .then((apiAsset) => {
+          dispatch({ type: 'ADD_ASSET', asset: apiAssetToLocal(apiAsset) });
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : '未知错误';
+          toast.showToast({
+            message: `已上传，但未能自动刷新列表（${message}）。请刷新页面。`,
+            variant: 'error',
+          });
+        });
+    },
+  });
 
   async function handleFiles(files: File[]) {
     await uploadMany(files);
