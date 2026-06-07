@@ -53,6 +53,24 @@ export function captureException(err: unknown, context?: Record<string, unknown>
   Sentry.captureException(err, context ? { extra: context } : undefined);
 }
 
+/**
+ * Add a breadcrumb to the current Sentry scope. Safe to call before
+ * init (no-op). Breadcrumbs appear in the Sentry UI as a trail on
+ * the current transaction/event — use this for "context about what
+ * happened", not for "errors that should page someone".
+ */
+export function addBreadcrumb(
+  crumb: {
+    category: string;
+    message: string;
+    data?: Record<string, unknown>;
+    level?: 'debug' | 'info' | 'warning' | 'error' | 'fatal';
+  },
+): void {
+  if (!initialised) return;
+  Sentry.addBreadcrumb(crumb);
+}
+
 /** Test-only — reset the singleton so tests can re-init with a different DSN. */
 export function _resetSentryForTests(): void {
   initialised = false;
