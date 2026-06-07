@@ -7,6 +7,7 @@ import type { Asset } from '../src/state/types';
 function makeAsset(overrides: Partial<Asset> = {}): Asset {
   return {
     id: 'a1',
+    orgId: 'org-1',
     name: 'sunset.png',
     type: 'image',
     format: 'PNG',

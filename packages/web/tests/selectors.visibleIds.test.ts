@@ -6,6 +6,7 @@ import { initialUI } from '../src/state/initialUI';
 const assets: Asset[] = [
   {
     id: 'a',
+    orgId: 'org-1',
     name: 'A',
     type: 'image',
     format: 'PNG',
@@ -18,6 +19,7 @@ const assets: Asset[] = [
   },
   {
     id: 'b',
+    orgId: 'org-1',
     name: 'B',
     type: 'video',
     format: 'MP4',

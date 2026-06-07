@@ -10,7 +10,7 @@ import type { Asset } from '../../../src/state/types.js';
 import { getPlaybackUrl } from '../../../src/api/assets.js';
 
 const asset: Asset = {
-  id: '1', name: 'hero.png', type: 'image', format: 'PNG', size: 2_400_000,
+  id: '1', orgId: 'org-1', name: 'hero.png', type: 'image', format: 'PNG', size: 2_400_000,
   uploadedAt: '', uploadedBy: 'u', tags: [], favorite: false, deletedAt: null,
 };
 

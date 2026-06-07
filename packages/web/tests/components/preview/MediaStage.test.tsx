@@ -10,7 +10,7 @@ import { getPlaybackUrl } from '../../../src/api/assets';
 import type { Asset } from '../../../src/state/types';
 
 const imageAsset: Asset = {
-  id: 'i1', name: 'a.png', type: 'image', format: 'PNG', size: 100,
+  id: 'i1', orgId: 'org-1', name: 'a.png', type: 'image', format: 'PNG', size: 100,
   uploadedAt: '', uploadedBy: 'u', tags: [], favorite: false, deletedAt: null,
   _thumbnailUrl: 'https://cdn/thumb.jpg',
 };

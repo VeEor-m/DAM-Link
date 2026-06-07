@@ -16,6 +16,7 @@ vi.mock('../src/api/assets.js', () => ({
   restore: vi.fn(),
   permanentDelete: vi.fn(),
   getDownloadUrl: vi.fn(),
+  getPlaybackUrl: vi.fn(),
   emptyTrash: vi.fn(),
 }));
 vi.mock('../src/api/share-links.js', () => ({ createShareLink: vi.fn(), listShareLinks: vi.fn(), revokeShareLink: vi.fn() }));
@@ -32,6 +33,7 @@ import {
   softDelete,
   restore,
   getDownloadUrl,
+  getPlaybackUrl,
   emptyTrash,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
@@ -97,6 +99,10 @@ async function mountAppWithAsset(asset: Asset) {
     favorites: 0,
     trash: 0,
   });
+  // The Lightbox opens on card click (Plan 17). Default playback URL
+  // succeeds so the MediaStage doesn't throw; individual tests that need
+  // a specific behavior override this.
+  vi.mocked(getPlaybackUrl).mockResolvedValue({ downloadUrl: 'https://cdn/full.png' });
 
   const utils = render(
     <StoreProvider>
@@ -110,11 +116,19 @@ async function mountAppWithAsset(asset: Asset) {
   return utils;
 }
 
-/** Click the asset card to open the DetailPanel. */
+/** Click the asset card to open the DetailPanel.
+ *
+ *  Since Plan 17 Task 19, clicking a card also opens the Lightbox (which
+ *  overlays the whole viewport). The DetailPanel handler tests don't care
+ *  about the Lightbox, so we close it via its floating ✕ button before
+ *  returning — otherwise the Lightbox's own "下载" / "收藏" buttons would
+ *  conflict with the DetailPanel's.
+ */
 async function selectAsset(user: ReturnType<typeof userEvent.setup>, name: string) {
   // The card has aria-label "${name}，${size}" so a regex on the name works.
   const card = screen.getByRole('button', { name: new RegExp(name, 'i') });
   await user.click(card);
+  await user.click(screen.getByTestId('lightbox-floating-close'));
 }
 
 describe('App — BatchActionBar handlers', () => {

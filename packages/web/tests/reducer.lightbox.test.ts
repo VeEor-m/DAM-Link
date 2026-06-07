@@ -4,7 +4,7 @@ import { initialUI } from '../src/state/initialUI';
 import type { AppState, Asset } from '../src/state/types';
 
 const asset: Asset = {
-  id: '1', name: 'A', type: 'image', format: 'PNG', size: 0,
+  id: '1', orgId: 'org-1', name: 'A', type: 'image', format: 'PNG', size: 0,
   uploadedAt: '', uploadedBy: 'u', tags: [], favorite: false, deletedAt: null,
 };
 const start: AppState = { assets: [asset], ui: { ...initialUI, selectedAssetId: null, lightboxAssetId: null } };

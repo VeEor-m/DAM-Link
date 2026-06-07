@@ -17,6 +17,7 @@ import { useConfirm } from './components/common/ConfirmDialog';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoginScreen } from './components/auth/LoginScreen';
 import { buildAssetRowMenuItems } from './components/browser/AssetRowMenu';
+import { Lightbox } from './components/preview/Lightbox';
 import { useStore } from './hooks/useStore';
 import { useDebounce } from './hooks/useDebounce';
 import { useToast } from './hooks/useToast';
@@ -27,6 +28,7 @@ import { initialUI } from './state/initialUI';
 import {
   selectVisibleAssets,
   selectActiveFilterCount,
+  selectVisibleAssetIds,
 } from './state/selectors';
 import { copyToClipboard } from './utils/clipboard';
 import { downloadAsset } from './utils/download';
@@ -45,6 +47,7 @@ import { createShareLink as apiCreateShareLink } from './api/share-links.js';
 import type { KeymapEntry } from './state/keymap';
 import type { Asset, SidebarSelection } from './state/types';
 import type { SidebarCounts } from '@dam-link/contracts';
+import type { NeighborItem } from './components/preview/NeighborStrip';
 import styles from './App.module.css';
 
 /** Empty placeholder for `state.ui.sidebarCounts` while the first fetch is
@@ -200,6 +203,39 @@ export default function App() {
     () => state.assets.find((a) => a.id === state.ui.selectedAssetId) ?? null,
     [state.assets, state.ui.selectedAssetId],
   );
+
+  // ── Lightbox wiring ──────────────────────────────────────────────────
+  const visibleIds = useMemo(
+    () => selectVisibleAssetIds(state),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.assets, state.ui],
+  );
+  const visibleNeighborItems = useMemo<NeighborItem[]>(
+    () =>
+      visibleIds
+        .map((id) => state.assets.find((a) => a.id === id))
+        .filter((a): a is Asset => Boolean(a))
+        .map((a) => ({ id: a.id, thumbnailUrl: a._thumbnailUrl ?? null, label: a.name })),
+    [visibleIds, state.assets],
+  );
+
+  const handleCloseLightbox = useCallback(() => {
+    dispatch({ type: 'CLOSE_LIGHTBOX' });
+  }, [dispatch]);
+
+  const handleLightboxNavigate = useCallback((id: string) => {
+    dispatch({ type: 'LIGHTBOX_NAVIGATE', assetId: id });
+  }, [dispatch]);
+
+  // Close the lightbox whenever the visible list changes underneath it
+  // (sidebar selection, search query, filter). The lightbox's prev/next
+  // chain is meaningless when the visible list is no longer the same.
+  useEffect(() => {
+    if (state.ui.lightboxAssetId) {
+      dispatch({ type: 'CLOSE_LIGHTBOX' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ui.selection, state.ui.searchQuery, state.ui.filter]);
 
   async function handleDelete() {
     if (!selected) return;
@@ -480,6 +516,21 @@ export default function App() {
     }
   }
 
+  // Lightbox-bound download: takes the asset from the lightbox (not the
+  // DetailPanel `selected`), so it's distinct from `handleDownload` above.
+  const handleDownloadLightboxAsset = useCallback(
+    async (asset: Asset) => {
+      const orgId = state.ui.activeOrgId;
+      if (!orgId) return;
+      try {
+        await downloadAsset(asset, orgId);
+      } catch {
+        toast.showToast({ message: '下载失败', variant: 'error' });
+      }
+    },
+    [state.ui.activeOrgId, toast],
+  );
+
   // ── Kebab context menu (per-row, operates on the row's asset) ───────
   function handleKebab(asset: Asset, anchor: HTMLElement) {
     const rect = anchor.getBoundingClientRect();
@@ -693,7 +744,7 @@ export default function App() {
               <AssetGrid
                 assets={visibleAssets}
                 selectedId={state.ui.selectedAssetId}
-                onSelect={(id) => dispatch({ type: 'SELECT_ASSET', id })}
+                onSelect={(id) => dispatch({ type: 'OPEN_LIGHTBOX', assetId: id })}
                 showFavorites={
                   state.ui.selection.kind === 'smart' &&
                   state.ui.selection.smart === 'favorites'
@@ -707,7 +758,7 @@ export default function App() {
               <AssetList
                 assets={visibleAssets}
                 selectedId={state.ui.selectedAssetId}
-                onSelect={(id) => dispatch({ type: 'SELECT_ASSET', id })}
+                onSelect={(id) => dispatch({ type: 'OPEN_LIGHTBOX', assetId: id })}
                 onToggleFavorite={(id) => dispatch({ type: 'TOGGLE_FAVORITE', id })}
                 onKebab={handleKebab}
                 multiSelectedIds={state.ui.selectedIds}
@@ -827,6 +878,19 @@ export default function App() {
         }
         onClose={() => setMenuAnchor(null)}
         triggerRef={menuAnchor?.trigger ?? null}
+      />
+
+      <Lightbox
+        asset={
+          state.assets.find((a) => a.id === state.ui.lightboxAssetId) ?? null
+        }
+        neighbors={visibleNeighborItems}
+        visibleIds={visibleIds}
+        orgId={state.ui.activeOrgId}
+        onNavigate={handleLightboxNavigate}
+        onClose={handleCloseLightbox}
+        onToggleFavorite={(id) => dispatch({ type: 'TOGGLE_FAVORITE', id })}
+        onDownload={handleDownloadLightboxAsset}
       />
     </ErrorBoundary>
   );

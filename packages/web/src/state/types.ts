@@ -6,6 +6,7 @@ export type AssetType = 'image' | 'video' | 'document' | 'audio';
 
 export interface Asset {
   id: string;
+  orgId: string;
   name: string;
   type: AssetType;
   format: string; // uppercase extension: PNG, JPG, MP4, PDF...

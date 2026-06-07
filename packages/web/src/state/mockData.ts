@@ -7,6 +7,7 @@ export const MOCK_ASSETS: Asset[] = [
   // ── Images (8) ────────────────────────────────────────────────────────
   {
     id: 'a01',
+    orgId: 'org-mock',
     name: 'hero-banner.png',
     type: 'image',
     format: 'PNG',
@@ -21,6 +22,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a02',
+    orgId: 'org-mock',
     name: 'product-01.jpg',
     type: 'image',
     format: 'JPG',
@@ -35,6 +37,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a03',
+    orgId: 'org-mock',
     name: 'logo-color.svg',
     type: 'image',
     format: 'SVG',
@@ -47,6 +50,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a04',
+    orgId: 'org-mock',
     name: 'bg-texture.png',
     type: 'image',
     format: 'PNG',
@@ -61,6 +65,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a05',
+    orgId: 'org-mock',
     name: 'team-photo.jpg',
     type: 'image',
     format: 'JPG',
@@ -75,6 +80,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a06',
+    orgId: 'org-mock',
     name: 'icon-set.zip',
     type: 'document',
     format: 'ZIP',
@@ -87,6 +93,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a07',
+    orgId: 'org-mock',
     name: 'social-cover.png',
     type: 'image',
     format: 'PNG',
@@ -101,6 +108,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'a08',
+    orgId: 'org-mock',
     name: 'old-logo.png',
     type: 'image',
     format: 'PNG',
@@ -117,6 +125,7 @@ export const MOCK_ASSETS: Asset[] = [
   // ── Videos (3) ────────────────────────────────────────────────────────
   {
     id: 'v01',
+    orgId: 'org-mock',
     name: 'intro-reel.mp4',
     type: 'video',
     format: 'MP4',
@@ -132,6 +141,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'v02',
+    orgId: 'org-mock',
     name: 'demo-loop.webm',
     type: 'video',
     format: 'WEBM',
@@ -147,6 +157,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'v03',
+    orgId: 'org-mock',
     name: 'testimonial-zhang.mp4',
     type: 'video',
     format: 'MP4',
@@ -164,6 +175,7 @@ export const MOCK_ASSETS: Asset[] = [
   // ── Documents (4) ─────────────────────────────────────────────────────
   {
     id: 'd01',
+    orgId: 'org-mock',
     name: 'brand-guidelines.pdf',
     type: 'document',
     format: 'PDF',
@@ -176,6 +188,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'd02',
+    orgId: 'org-mock',
     name: 'q2-roadmap.docx',
     type: 'document',
     format: 'DOCX',
@@ -188,6 +201,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'd03',
+    orgId: 'org-mock',
     name: 'launch-plan.pdf',
     type: 'document',
     format: 'PDF',
@@ -200,6 +214,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'd04',
+    orgId: 'org-mock',
     name: 'old-deck.pptx',
     type: 'document',
     format: 'PPTX',
@@ -214,6 +229,7 @@ export const MOCK_ASSETS: Asset[] = [
   // ── Audio (3) ─────────────────────────────────────────────────────────
   {
     id: 'au01',
+    orgId: 'org-mock',
     name: 'podcast-ep12.mp3',
     type: 'audio',
     format: 'MP3',
@@ -227,6 +243,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'au02',
+    orgId: 'org-mock',
     name: 'jingle-short.wav',
     type: 'audio',
     format: 'WAV',
@@ -240,6 +257,7 @@ export const MOCK_ASSETS: Asset[] = [
   },
   {
     id: 'au03',
+    orgId: 'org-mock',
     name: 'soundtrack.mp3',
     type: 'audio',
     format: 'MP3',
