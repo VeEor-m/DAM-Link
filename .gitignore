@@ -26,6 +26,9 @@ packages/api/drizzle/meta/_journal.json.bak
 # worktrees
 .worktrees/
 
+# plan verification screenshots (new files ignored; existing tracked files stay)
+docs/superpowers/plans/screenshots/
+
 # brainstorming visual companion artifacts
 .superpowers/
 
