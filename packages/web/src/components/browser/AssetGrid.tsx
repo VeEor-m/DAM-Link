@@ -1,6 +1,10 @@
+import { useRef } from 'react';
 import type { Asset, AssetType } from '../../state/types';
 import { AssetCard } from './AssetCard';
 import { EmptyState } from '../common/EmptyState';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import { createAssetGridStagger } from '../../lib/animations/asset-grid.js';
+import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import styles from './AssetGrid.module.css';
 
 interface AssetGridProps {
@@ -45,6 +49,30 @@ export function AssetGrid({
   multiSelectedIds,
   onToggleMultiSelect,
 }: AssetGridProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const isFirstMount = useIsFirstMount();
+
+  // Replay per-card stagger on user-initiated `assets` changes (search /
+  // filter / sidebar click). First invocation is gated by useIsFirstMount —
+  // the AppShell mount already animated the initial cards, so the first
+  // dep change should be a no-op. Gated by prefers-reduced-motion via
+  // gsap.matchMedia so the no-motion branch is a no-op.
+  useGSAP(
+    () => {
+      if (!gridRef.current) return;
+      const cards = Array.from(
+        gridRef.current.querySelectorAll<HTMLElement>('[data-anim="card"]'),
+      );
+      if (cards.length === 0) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        createAssetGridStagger(gridRef.current!, cards).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: gridRef, dependencies: [assets, isFirstMount] },
+  );
+
   if (assets.length === 0) {
     return <EmptyState message="没有匹配的资产" />;
   }
@@ -57,7 +85,7 @@ export function AssetGrid({
   const idSet = multiSelectedIds ? new Set(multiSelectedIds) : null;
 
   return (
-    <div className={styles.sections}>
+    <div ref={gridRef} className={styles.sections}>
       {TYPE_ORDER.filter((t) => byType.has(t)).map((type) => {
         const list = byType.get(type)!;
         return (
