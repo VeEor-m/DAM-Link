@@ -317,6 +317,67 @@ describe('App — BatchActionBar handlers', () => {
       expect(screen.queryByTestId('lightbox')).toBeNull();
     });
   });
+
+  // ── Lightbox is image/video only (audio/document → DetailPanel only)
+  //
+  // The Lightbox can only usefully preview image and video assets; for
+  // audio/document it would show a broken/non-applicable preview. Clicking
+  // those cards should SELECT_ASSET (open the DetailPanel) but NOT open
+  // the Lightbox dialog.
+
+  it('clicking an audio card opens the DetailPanel without opening the Lightbox', async () => {
+    const user = userEvent.setup();
+    const audio = makeApiAsset({
+      id: 'a1',
+      name: 'song.mp3',
+      type: 'audio',
+      format: 'MP3',
+      mimeType: 'audio/mpeg',
+    });
+    await mountAppWithAsset(audio);
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // Click the audio card. The AssetCard has role="button" and
+    // aria-label "${name}，${size}".
+    const card = screen.getByRole('button', { name: /song\.mp3/i });
+    await user.click(card);
+
+    // Lightbox MUST NOT open for audio. Wait a tick to be sure.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // DetailPanel IS showing the asset (rename button shows the name and
+    // has title="点击重命名" when not in trash).
+    expect(screen.getByTitle('点击重命名')).toHaveTextContent('song.mp3');
+  });
+
+  it('clicking a document card opens the DetailPanel without opening the Lightbox', async () => {
+    const user = userEvent.setup();
+    const doc = makeApiAsset({
+      id: 'd1',
+      name: 'spec.pdf',
+      type: 'document',
+      format: 'PDF',
+      mimeType: 'application/pdf',
+    });
+    await mountAppWithAsset(doc);
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // Click the document card.
+    const card = screen.getByRole('button', { name: /spec\.pdf/i });
+    await user.click(card);
+
+    // Lightbox MUST NOT open for documents.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // DetailPanel IS showing the asset.
+    expect(screen.getByTitle('点击重命名')).toHaveTextContent('spec.pdf');
+  });
 });
 
 describe('App DetailPanel handlers — API wiring', () => {
