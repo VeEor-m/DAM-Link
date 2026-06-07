@@ -88,11 +88,17 @@ Three new pieces, all small. No new dependencies.
 Exports:
 
 ```ts
-/** Wrap a postgres-js query call with timing + slow-query logging. */
-export async function observeSql<T>(
-  sql: postgres.Sql,
-  fn: (sql: postgres.Sql) => Promise<T>,
-): Promise<T>;
+/**
+ * Wrap a query with timing + slow-query logging. The caller passes a
+ * closure that performs the query (using whichever sql/db client the
+ * caller normally uses); this wrapper measures elapsed time, logs +
+ * adds a Sentry breadcrumb if the duration exceeds the threshold.
+ *
+ * Note: this wrapper is opt-in. Queries that bypass it are not timed
+ * and not counted in `inUse`. The implementation plan must wrap every
+ * repository call site (or document the exceptions).
+ */
+export async function observeSql<T>(fn: () => Promise<T>): Promise<T>;
 
 /** Snapshot of current pool state. Exposed for /healthz. */
 export function getPoolStats(): { max: number; inUse: number; waiting: number };
@@ -106,10 +112,11 @@ Implementation outline (~80 lines):
 - A module-level `let inUse = 0; let waiting = 0;`.
 - `observeSql`:
   - `const start = performance.now(); inUse++;`
-  - `try { return await fn(sql); }`
+  - `try { return await fn(); }`
   - `finally { inUse--; const durationMs = performance.now() - start; if (durationMs > threshold) { ... } }`
   - The slow-query branch logs to `logger.warn({ evt: 'slow_query', durationMs, sql, rowCount, requestId }, 'slow query')` and calls `Sentry.addBreadcrumb({ category: 'db', message: 'slow_query', data: { durationMs, sql, rowCount } })`.
   - The `requestId` comes from `AsyncLocalStorage` populated by the existing `request-id` plugin.
+  - **Note**: `inUse` only counts queries that go through `observeSql`. A repository that bypasses the wrapper will not increment this counter. The implementation plan MUST wrap every repository call site or document the exceptions.
 - `getPoolStats()`: returns `{ max: poolMax, inUse, waiting }`.
 - `poolMax` is read from the `sql.options.max` (set by `db/client.ts` from config).
 - For `waiting`: postgres-js fires `onreserve` when a connection is reserved from the pool (no wait) or `onreserve` with a delay when one has to wait. We attach these in `db/client.ts` (not in `observe.ts`) and track `waiting` as a counter. **One-time hook setup, runs on first `getDb()` call.**
@@ -201,7 +208,7 @@ The design doc lists the recommended alert rules. They are NOT applied automatic
 
 - **postgres-js event names**: The exact event names (`onreserve`, `onrelease`, or maybe `connect`, `poolconnect`, etc.) need to be verified against the installed version (per `package.json`). If the events don't exist, `waiting` stays 0 forever — that's a known acceptable degradation, documented in §6.
 - **Wrap point for Drizzle**: The `observeSql` wrapper goes around individual queries, not around the `sql` client itself. The cleanest seam is to wrap inside the repository layer OR provide a helper that repos call. **Plan must decide**:
-  - Option X: Repos call `observeSql(sql, (s) => s\`SELECT ...\`)` — explicit, every repo call site changes.
+  - Option X: Repos call `await observeSql(() => sql\`SELECT ...\`)` — explicit, every repo call site changes.
   - Option Y: Replace the exported `sql` from `db/client.ts` with a Proxy that times every method call. Zero call-site changes, but magic.
   - **Recommendation: Option X.** It's 5–10 minutes of `await observeSql(async (s) => await s\`...\`)` wrapping per repo, and it makes the instrumentation visible to anyone reading the code. Magic proxies tend to be debugged the hard way.
 - **`AsyncLocalStorage` import**: The existing `request-id` plugin (`packages/api/src/plugins/request-id.ts`) likely already uses `AsyncLocalStorage` — confirm and reuse the same instance rather than creating a second one.
