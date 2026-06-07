@@ -101,46 +101,6 @@ export function reducer(state: AppState, action: Action): AppState {
         ),
       };
     }
-    case 'DELETE_ASSET':
-      return {
-        ...state,
-        assets: state.assets.map((a) =>
-          a.id === action.id ? { ...a, deletedAt: action.deletedAt } : a,
-        ),
-      };
-    case 'RESTORE_ASSET':
-      return {
-        ...state,
-        assets: state.assets.map((a) =>
-          a.id === action.id ? { ...a, deletedAt: null } : a,
-        ),
-      };
-    case 'PERMANENT_DELETE':
-      return {
-        ...state,
-        assets: state.assets.filter((a) => a.id !== action.id),
-        ui: {
-          ...state.ui,
-          selectedAssetId:
-            state.ui.selectedAssetId === action.id ? null : state.ui.selectedAssetId,
-        },
-      };
-    case 'EMPTY_TRASH':
-      return {
-        ...state,
-        assets: state.assets.filter((a) => a.deletedAt === null),
-        ui: { ...state.ui, selectedAssetId: null },
-      };
-    case 'BATCH_DELETE': {
-      const iso = action.when.toISOString().replace(/\.\d{3}Z$/, 'Z');
-      const idSet = new Set(action.ids);
-      return {
-        ...state,
-        assets: state.assets.map((a) =>
-          idSet.has(a.id) ? { ...a, deletedAt: iso } : a,
-        ),
-      };
-    }
     case 'SET_SIDEBAR_COUNTS':
       return { ...state, ui: { ...state.ui, sidebarCounts: action.counts } };
     default:
