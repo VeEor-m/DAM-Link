@@ -4,7 +4,7 @@ vi.mock('../../../src/api/assets', () => ({
   getPlaybackUrl: vi.fn(),
 }));
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Lightbox } from '../../../src/components/preview/Lightbox.js';
 import type { Asset } from '../../../src/state/types.js';
 import { getPlaybackUrl } from '../../../src/api/assets.js';
@@ -13,6 +13,7 @@ const asset: Asset = {
   id: '1', orgId: 'org-1', name: 'hero.png', type: 'image', format: 'PNG', size: 2_400_000,
   uploadedAt: '', uploadedBy: 'u', tags: [], favorite: false, deletedAt: null,
 };
+const videoAsset: Asset = { ...asset, id: 'v1', type: 'video', format: 'MP4' };
 
 const neighbors = [
   { id: '0', thumbnailUrl: 'https://cdn/0.jpg', label: 'prev' },
@@ -80,5 +81,68 @@ describe('Lightbox', () => {
     );
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
+  });
+
+  // Regression test for the "video stutters / restarts every ~2s" bug.
+  //
+  // Background: Lightbox itself re-renders every ~2s when the idle-timer
+  // (useLightbox → useIdleTimer) flips isIdle from false to true. Before
+  // the fix, Lightbox.tsx:154 was passing an inline arrow function
+  // `onError={() => {}}` to <MediaStage>, so every Lightbox re-render
+  // produced a NEW onError reference. MediaStageInner's useEffect lists
+  // `onError` in its deps, so a new reference re-ran the effect →
+  // getPlaybackUrl() → setPlaybackUrl(newUrl) → <video src> changed →
+  // the browser restarted video playback from byte 0. User-visible
+  // symptom: video plays a few seconds then pauses/restarts.
+  //
+  // The fix is in Lightbox.tsx: pass a module-level noop constant
+  // (stable reference, allocated once) instead of an inline arrow. This
+  // test simulates the same re-render pattern (rerender with the same
+  // props forces Lightbox to re-render) and asserts that getPlaybackUrl
+  // is called exactly once, not twice.
+  it('does not re-fetch getPlaybackUrl on Lightbox re-render (regression: video src restart every 2s)', async () => {
+    vi.mocked(getPlaybackUrl).mockResolvedValue({ downloadUrl: 'https://cdn/v.mp4' });
+
+    const { rerender } = render(
+      <Lightbox
+        asset={videoAsset}
+        neighbors={neighbors}
+        visibleIds={['0', '1', '2']}
+        orgId="o1"
+        onNavigate={() => {}}
+        onClose={() => {}}
+        onToggleFavorite={() => {}}
+        onDownload={() => {}}
+      />,
+    );
+
+    // Wait for the initial fetch to land.
+    await waitFor(() => {
+      expect(vi.mocked(getPlaybackUrl)).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(getPlaybackUrl)).toHaveBeenCalledWith('o1', 'v1');
+
+    // Force a Lightbox re-render with the same props. With the bug
+    // (inline onError in Lightbox.tsx), this produces a new onError
+    // reference → MediaStage's useEffect re-fires → getPlaybackUrl is
+    // called a second time. With the fix (module-level noop), the
+    // onError reference is stable across re-renders → effect does NOT
+    // re-fire → getPlaybackUrl is still only called once.
+    rerender(
+      <Lightbox
+        asset={videoAsset}
+        neighbors={neighbors}
+        visibleIds={['0', '1', '2']}
+        orgId="o1"
+        onNavigate={() => {}}
+        onClose={() => {}}
+        onToggleFavorite={() => {}}
+        onDownload={() => {}}
+      />,
+    );
+
+    // Give the effect a tick to (not) re-run.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(vi.mocked(getPlaybackUrl)).toHaveBeenCalledTimes(1);
   });
 });
