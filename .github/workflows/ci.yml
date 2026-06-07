@@ -30,6 +30,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build contracts
+        # contracts exports types from dist/index.d.ts; the API typecheck
+        # needs the dist to exist before tsc can resolve the imports.
+        run: pnpm -F @dam-link/contracts build
+
       - name: Lint
         run: pnpm -r --if-present --filter !@dam-link/web lint
 

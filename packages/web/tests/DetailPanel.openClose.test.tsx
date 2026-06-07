@@ -15,6 +15,7 @@ import { createSideDetailPanelTimeline } from '../src/lib/animations/detail-pane
 
 const A: Asset = {
   id: 'a',
+  orgId: 'org-1',
   name: 'a.png',
   type: 'image',
   format: 'PNG',

@@ -46,7 +46,7 @@ export function requireRole(min: Role) {
     if (!req.orgContext) {
       throw new AppError(500, 'ORG_CONTEXT_MISSING', 'orgContext not set');
     }
-    if (ROLE_ORDER[req.orgContext.role] < ROLE_ORDER[min]) {
+    if ((ROLE_ORDER[req.orgContext.role] ?? 0) < (ROLE_ORDER[min] ?? 0)) {
       throw new AppError(403, 'INSUFFICIENT_ROLE', `Requires ${min} or higher`);
     }
   };

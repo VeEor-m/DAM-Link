@@ -14,6 +14,7 @@ import { createAssetGridStagger } from '../src/lib/animations/asset-grid.js';
 
 const A: Asset = {
   id: 'a',
+  orgId: 'org-1',
   name: 'a.png',
   type: 'image',
   format: 'PNG',

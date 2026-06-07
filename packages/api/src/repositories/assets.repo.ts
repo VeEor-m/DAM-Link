@@ -157,7 +157,7 @@ function buildWhereClause(args: AssetListArgs): SQL | undefined {
   }
 
   if (args.sizeBucket) {
-    const { min, max } = SIZE_BUCKETS[args.sizeBucket];
+    const { min, max } = SIZE_BUCKETS[args.sizeBucket]!;
     conds.push(gte(assets.size, min));
     conds.push(lt(assets.size, max));
   }
