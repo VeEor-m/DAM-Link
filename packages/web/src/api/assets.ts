@@ -42,3 +42,8 @@ export async function sidebarCounts(orgId: string): Promise<SidebarCounts> {
 export async function getDownloadUrl(orgId: string, id: string): Promise<{ downloadUrl: string }> {
   return api<{ downloadUrl: string }>(`/orgs/${orgId}/assets/${id}/download-url`);
 }
+
+/** Alias for getDownloadUrl; named to convey "this URL is meant for
+ *  <video>/<audio>/<img> playback, not for browser downloads". The server
+ *  returns the same presigned URL in both cases. */
+export const getPlaybackUrl = getDownloadUrl;
