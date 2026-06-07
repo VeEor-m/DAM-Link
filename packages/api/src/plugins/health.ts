@@ -1,6 +1,7 @@
 import type { App } from '../types.js';
 import { pingS3 } from '../lib/s3.js';
 import { pingDb } from '../db/client.js';
+import { getPoolStats } from '../db/observe.js';
 
 // Plain JSON schema (avoids zod-to-json-schema quirks with Fastify's
 // response serializer). We validate the body shape with Zod in tests.
@@ -12,8 +13,17 @@ const HealthResponseSchema = {
     s3: { type: 'string', enum: ['ok', 'down'] },
     version: { type: 'string' },
     uptime: { type: 'number' },
+    pool: {
+      type: 'object',
+      properties: {
+        max: { type: 'number' },
+        inUse: { type: 'number' },
+        waiting: { type: 'number' },
+      },
+      required: ['max', 'inUse', 'waiting'],
+    },
   },
-  required: ['status', 'db', 's3', 'version', 'uptime'],
+  required: ['status', 'db', 's3', 'version', 'uptime', 'pool'],
 } as const;
 
 const VersionResponseSchema = {
@@ -50,6 +60,7 @@ export async function registerHealth(app: App): Promise<void> {
         s3: s3Ok ? ('ok' as const) : ('down' as const),
         version: '0.0.0',
         uptime: Math.floor((Date.now() - start) / 1000),
+        pool: getPoolStats(),
       };
       return reply.status(ok ? 200 : 503).send(body);
     },

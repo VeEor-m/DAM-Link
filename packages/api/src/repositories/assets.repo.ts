@@ -1,5 +1,6 @@
 import { and, eq, gte, ilike, inArray, isNull, isNotNull, lt, lte, ne, or, sql, desc, asc, count, type SQL } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
+import { observeSql } from '../db/observe.js';
 import { assets, type Asset, type NewAsset } from '../db/schema.js';
 import type {
   AssetType,
@@ -13,12 +14,14 @@ import type {
 
 /** Counts non-trashed assets in an org. Used by /me and /orgs/:id. */
 export async function countAssetsInOrg(orgId: string): Promise<number> {
-  const db = getDb();
-  const rows = await db
-    .select({ id: assets.id })
-    .from(assets)
-    .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt)));
-  return rows.length;
+  return await observeSql('assets.countAssetsInOrg', async () => {
+    const db = getDb();
+    const rows = await db
+      .select({ id: assets.id })
+      .from(assets)
+      .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt)));
+    return rows.length;
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -26,20 +29,24 @@ export async function countAssetsInOrg(orgId: string): Promise<number> {
 /* -------------------------------------------------------------------------- */
 
 export async function findAssetById(orgId: string, id: string): Promise<Asset | null> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(assets)
-    .where(and(eq(assets.id, id), eq(assets.orgId, orgId)))
-    .limit(1);
-  return rows[0] ?? null;
+  return await observeSql('assets.findAssetById', async () => {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(assets)
+      .where(and(eq(assets.id, id), eq(assets.orgId, orgId)))
+      .limit(1);
+    return rows[0] ?? null;
+  });
 }
 
 export async function insertAsset(input: NewAsset): Promise<Asset> {
-  const db = getDb();
-  const [row] = await db.insert(assets).values(input).returning();
-  if (!row) throw new Error('insertAsset: insert returned no rows');
-  return row;
+  return await observeSql('assets.insertAsset', async () => {
+    const db = getDb();
+    const [row] = await db.insert(assets).values(input).returning();
+    if (!row) throw new Error('insertAsset: insert returned no rows');
+    return row;
+  });
 }
 
 export async function updateAsset(
@@ -47,21 +54,25 @@ export async function updateAsset(
   id: string,
   patch: Partial<NewAsset>,
 ): Promise<Asset> {
-  const db = getDb();
-  const [row] = await db
-    .update(assets)
-    .set(patch)
-    .where(and(eq(assets.id, id), eq(assets.orgId, orgId)))
-    .returning();
-  if (!row) throw new Error('updateAsset: update returned no rows');
-  return row;
+  return await observeSql('assets.updateAsset', async () => {
+    const db = getDb();
+    const [row] = await db
+      .update(assets)
+      .set(patch)
+      .where(and(eq(assets.id, id), eq(assets.orgId, orgId)))
+      .returning();
+    if (!row) throw new Error('updateAsset: update returned no rows');
+    return row;
+  });
 }
 
 export async function deleteAssetHard(orgId: string, id: string): Promise<void> {
-  const db = getDb();
-  await db
-    .delete(assets)
-    .where(and(eq(assets.id, id), eq(assets.orgId, orgId)));
+  return await observeSql('assets.deleteAssetHard', async () => {
+    const db = getDb();
+    await db
+      .delete(assets)
+      .where(and(eq(assets.id, id), eq(assets.orgId, orgId)));
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -192,16 +203,18 @@ function buildOrderBy(sort: AssetListArgs['sort']): SQL[] {
 }
 
 export async function listAssets(args: AssetListArgs): Promise<Asset[]> {
-  const db = getDb();
-  const sort = args.sort ?? 'uploadedAt:desc';
-  const where = buildWhereClause(args);
-  const orderBy = buildOrderBy(sort);
-  return db
-    .select()
-    .from(assets)
-    .where(where)
-    .orderBy(...orderBy)
-    .limit(args.limit);
+  return await observeSql('assets.listAssets', async () => {
+    const db = getDb();
+    const sort = args.sort ?? 'uploadedAt:desc';
+    const where = buildWhereClause(args);
+    const orderBy = buildOrderBy(sort);
+    return db
+      .select()
+      .from(assets)
+      .where(where)
+      .orderBy(...orderBy)
+      .limit(args.limit);
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -209,50 +222,58 @@ export async function listAssets(args: AssetListArgs): Promise<Asset[]> {
 /* -------------------------------------------------------------------------- */
 
 export async function countAssetsByType(orgId: string): Promise<Record<AssetType, number>> {
-  const db = getDb();
-  const rows = await db
-    .select({ type: assets.type, c: count() })
-    .from(assets)
-    .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt)))
-    .groupBy(assets.type);
-  const out: Record<AssetType, number> = { image: 0, video: 0, document: 0, audio: 0 };
-  for (const r of rows) out[r.type] = Number(r.c);
-  return out;
+  return await observeSql('assets.countAssetsByType', async () => {
+    const db = getDb();
+    const rows = await db
+      .select({ type: assets.type, c: count() })
+      .from(assets)
+      .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt)))
+      .groupBy(assets.type);
+    const out: Record<AssetType, number> = { image: 0, video: 0, document: 0, audio: 0 };
+    for (const r of rows) out[r.type] = Number(r.c);
+    return out;
+  });
 }
 
 export async function countAssetsByTag(
   orgId: string,
   limit = 50,
 ): Promise<Array<{ tag: string; count: number }>> {
-  const db = getDb();
-  // Unnest the tags array and count occurrences.
-  const rows = await db.execute<{ tag: string; count: number }>(sql`
-    SELECT tag, COUNT(*)::int AS count
-    FROM assets, unnest(${assets.tags}) AS tag
-    WHERE ${assets.orgId} = ${orgId} AND ${assets.deletedAt} IS NULL
-    GROUP BY tag
-    ORDER BY count DESC, tag ASC
-    LIMIT ${limit}
-  `);
-  return rows.map((r) => ({ tag: r.tag, count: Number(r.count) }));
+  return await observeSql('assets.countAssetsByTag', async () => {
+    const db = getDb();
+    // Unnest the tags array and count occurrences.
+    const rows = await db.execute<{ tag: string; count: number }>(sql`
+      SELECT tag, COUNT(*)::int AS count
+      FROM assets, unnest(${assets.tags}) AS tag
+      WHERE ${assets.orgId} = ${orgId} AND ${assets.deletedAt} IS NULL
+      GROUP BY tag
+      ORDER BY count DESC, tag ASC
+      LIMIT ${limit}
+    `);
+    return rows.map((r) => ({ tag: r.tag, count: Number(r.count) }));
+  });
 }
 
 export async function countFavorites(orgId: string): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({ c: count() })
-    .from(assets)
-    .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt), eq(assets.favorite, true)));
-  return Number(row?.c ?? 0);
+  return await observeSql('assets.countFavorites', async () => {
+    const db = getDb();
+    const [row] = await db
+      .select({ c: count() })
+      .from(assets)
+      .where(and(eq(assets.orgId, orgId), isNull(assets.deletedAt), eq(assets.favorite, true)));
+    return Number(row?.c ?? 0);
+  });
 }
 
 export async function countTrash(orgId: string): Promise<number> {
-  const db = getDb();
-  const [row] = await db
-    .select({ c: count() })
-    .from(assets)
-    .where(and(eq(assets.orgId, orgId), isNotNull(assets.deletedAt)));
-  return Number(row?.c ?? 0);
+  return await observeSql('assets.countTrash', async () => {
+    const db = getDb();
+    const [row] = await db
+      .select({ c: count() })
+      .from(assets)
+      .where(and(eq(assets.orgId, orgId), isNotNull(assets.deletedAt)));
+    return Number(row?.c ?? 0);
+  });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -260,20 +281,26 @@ export async function countTrash(orgId: string): Promise<number> {
 /* -------------------------------------------------------------------------- */
 
 export async function softDeleteAsset(orgId: string, id: string, when: Date): Promise<Asset> {
-  return updateAsset(orgId, id, { deletedAt: when });
+  return await observeSql('assets.softDeleteAsset', async () => {
+    return updateAsset(orgId, id, { deletedAt: when });
+  });
 }
 
 export async function restoreAsset(orgId: string, id: string): Promise<Asset> {
-  return updateAsset(orgId, id, { deletedAt: null });
+  return await observeSql('assets.restoreAsset', async () => {
+    return updateAsset(orgId, id, { deletedAt: null });
+  });
 }
 
 export async function emptyTrash(orgId: string): Promise<number> {
-  const db = getDb();
-  const rows = await db
-    .delete(assets)
-    .where(and(eq(assets.orgId, orgId), isNotNull(assets.deletedAt)))
-    .returning({ id: assets.id });
-  return rows.length;
+  return await observeSql('assets.emptyTrash', async () => {
+    const db = getDb();
+    const rows = await db
+      .delete(assets)
+      .where(and(eq(assets.orgId, orgId), isNotNull(assets.deletedAt)))
+      .returning({ id: assets.id });
+    return rows.length;
+  });
 }
 
 /* -------------------------------------------------------------------------- */

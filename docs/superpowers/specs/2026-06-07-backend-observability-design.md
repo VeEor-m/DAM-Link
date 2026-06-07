@@ -89,16 +89,20 @@ Exports:
 
 ```ts
 /**
- * Wrap a query with timing + slow-query logging. The caller passes a
- * closure that performs the query (using whichever sql/db client the
- * caller normally uses); this wrapper measures elapsed time, logs +
- * adds a Sentry breadcrumb if the duration exceeds the threshold.
+ * Wrap a query with timing + slow-query logging.
+ *
+ * @param op   A short, stable operation label identifying the caller
+ *             (e.g. `'assets.findById'`, `'orgs.listForUser'`). The
+ *             label is included in the slow-query log line and the
+ *             Sentry breadcrumb so an on-call engineer can find the
+ *             offending repo function. Use `<repo>.<method>` convention.
+ * @param fn   The closure that performs the actual query.
  *
  * Note: this wrapper is opt-in. Queries that bypass it are not timed
  * and not counted in `inUse`. The implementation plan must wrap every
  * repository call site (or document the exceptions).
  */
-export async function observeSql<T>(fn: () => Promise<T>): Promise<T>;
+export async function observeSql<T>(op: string, fn: () => Promise<T>): Promise<T>;
 
 /** Snapshot of current pool state. Exposed for /healthz. */
 export function getPoolStats(): { max: number; inUse: number; waiting: number };
@@ -112,9 +116,11 @@ Implementation outline (~80 lines):
 - A module-level `let inUse = 0; let waiting = 0;`.
 - `observeSql`:
   - `const start = performance.now(); inUse++;`
-  - `try { return await fn(); }`
+  - Track outcome (`{ok: true, value} | {ok: false}`) so the finally block can compute rowCount from the resolved value.
+  - `try { const value = await fn(); outcome = {ok: true, value}; return value; }`
   - `finally { inUse--; const durationMs = performance.now() - start; if (durationMs > threshold) { ... } }`
-  - The slow-query branch logs to `logger.warn({ evt: 'slow_query', durationMs, sql, rowCount, requestId }, 'slow query')` and calls `Sentry.addBreadcrumb({ category: 'db', message: 'slow_query', data: { durationMs, sql, rowCount } })`.
+  - The slow-query branch logs to `logger.warn({ evt: 'slow_query', op, durationMs, rowCount, requestId }, 'slow query')` and calls `Sentry.addBreadcrumb({ category: 'db', message: 'slow_query', data: { op, durationMs, rowCount } })`. Both calls live inside one try/catch — see §6.
+  - `rowCount` is `Array.isArray(result) ? result.length : undefined`. Drizzle queries return arrays; non-array results pass through as undefined.
   - The `requestId` comes from `AsyncLocalStorage` populated by the existing `request-id` plugin.
   - **Note**: `inUse` only counts queries that go through `observeSql`. A repository that bypasses the wrapper will not increment this counter. The implementation plan MUST wrap every repository call site or document the exceptions.
 - `getPoolStats()`: returns `{ max: poolMax, inUse, waiting }`.
@@ -157,13 +163,16 @@ Implementation outline (~80 lines):
 1. Request arrives, `request-id` plugin stores `requestId` in `AsyncLocalStorage`.
 2. Route handler calls `db.execute(...)` (Drizzle).
 3. Drizzle internally calls the wrapped postgres-js `sql` client (which is the same `cachedSql` we wrapped, but the wrap happens at the `observeSql` boundary in the repo layer).
-4. `observeSql`:
+4. `observeSql('assets.findById', () => …)`:
    - Reads `requestId` from `AsyncLocalStorage`.
    - Increments `inUse`, runs the query, decrements on completion.
-   - If `durationMs > SLOW_QUERY_MS`:
-     - Pino `warn` log line: `{ evt: 'slow_query', durationMs, sql, rowCount, requestId, level: 'warn' }`.
-     - Sentry `addBreadcrumb` with category `db`, message `slow_query`, data `{ durationMs, sql, rowCount }`. (Not an exception — a breadcrumb, so it doesn't create a Sentry issue, just shows up on the current transaction's breadcrumb trail.)
-5. Test in unit test asserts: when threshold is 0ms, every query logs; when threshold is 1000ms, a 5ms query does not.
+   - If `durationMs > SLOW_QUERY_MS` (or threshold is 0):
+     - Pino `warn` log line: `{ evt: 'slow_query', op, durationMs, rowCount, requestId, level: 'warn' }`.
+     - Sentry `addBreadcrumb` with category `db`, message `slow_query`, data `{ op, durationMs, rowCount }`. (Not an exception — a breadcrumb, so it doesn't create a Sentry issue, just shows up on the current transaction's breadcrumb trail.)
+   - Both the `logger.warn` and the `addBreadcrumb` call are wrapped in a single try/catch (see §6).
+5. Test in unit test asserts: when threshold is 0ms, every query logs; when threshold is 1000ms, a 5ms query does not; `op` field is present in the log payload; `rowCount` matches `result.length` when the callback returns an array.
+
+**Why `op`, not raw `sql`:** operation label (e.g. `assets.findById`) — survives query rewrites; raw SQL would need postgres-js hooks not exposed in 3.4.5.
 
 ### 5.2 Connection pool stats on `/healthz`
 
@@ -187,7 +196,7 @@ The design doc lists the recommended alert rules. They are NOT applied automatic
 | Sentry not initialized (no DSN) | `Sentry.addBreadcrumb` is a no-op (per `@sentry/node` semantics). The Pino log still fires. |
 | `AsyncLocalStorage` doesn't have a `requestId` (e.g. background job, not a request) | `requestId` is `undefined` in the log — acceptable, not an error. |
 | `onreserve`/`onrelease` events don't exist on this version of postgres-js | Falls back to in-flight counter only (`waiting` stays 0). Documented in §7 Implementation Note. |
-| Slow query happens but logger / Sentry fail | Query result is already returned to caller; log/breadcrumb failure is swallowed (wrapped in `try { ... } catch {}` so observability bugs never break the API). |
+| Slow query happens but logger / Sentry fail | Query result is already returned to caller; log/breadcrumb failure is swallowed. The **entire** `emitSlowQuery` body (both `logger.warn` and `addBreadcrumb`) is wrapped in one `try { ... } catch {}` so observability bugs never break the API. The inner error is dropped on the floor — that's the spec's explicit trade-off (the alternative, logging the observability failure, risks recursive failure). |
 
 ## 7. Testing
 
