@@ -14,6 +14,7 @@ vi.mock('../src/lib/sentry.js', async () => {
 });
 
 describe('observeSql — Sentry breadcrumb', () => {
+  const originalEnv = { ...process.env };
   beforeEach(() => {
     _resetObserveForTests();
     _resetConfigForTests();
@@ -21,18 +22,21 @@ describe('observeSql — Sentry breadcrumb', () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    process.env = { ...originalEnv };
+    _resetConfigForTests();
   });
 
-  it('calls addBreadcrumb with category=db on a slow query', async () => {
+  it('calls addBreadcrumb with category=db, op, and durationMs on a slow query', async () => {
     process.env.SLOW_QUERY_MS = '0';
     _resetConfigForTests();
 
-    await observeSql(async () => 'fast');
+    await observeSql('assets.findById', async () => 'fast');
 
     expect(vi.mocked(addBreadcrumb)).toHaveBeenCalledTimes(1);
     const arg = vi.mocked(addBreadcrumb).mock.calls[0][0];
     expect(arg.category).toBe('db');
     expect(arg.message).toBe('slow_query');
+    expect(arg.data?.op).toBe('assets.findById');
     expect(arg.data?.durationMs).toBeGreaterThanOrEqual(0);
     expect(arg.level).toBe('warning');
   });
@@ -41,7 +45,7 @@ describe('observeSql — Sentry breadcrumb', () => {
     process.env.SLOW_QUERY_MS = '10000';
     _resetConfigForTests();
 
-    await observeSql(async () => {
+    await observeSql('test.fast-breadcrumb', async () => {
       await new Promise((r) => setTimeout(r, 1));
     });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   observeSql,
   getPoolStats,
@@ -7,8 +7,14 @@ import {
 import { _resetConfigForTests } from '../src/config.js';
 
 describe('getPoolStats', () => {
+  const originalEnv = { ...process.env };
   beforeEach(() => {
     _resetObserveForTests();
+    _resetConfigForTests();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.env = { ...originalEnv };
     _resetConfigForTests();
   });
 
@@ -25,13 +31,13 @@ describe('getPoolStats', () => {
       release = res;
     });
 
-    const q1 = observeSql(async () => {
+    const q1 = observeSql('test.barrier', async () => {
       await barrier;
     });
-    const q2 = observeSql(async () => {
+    const q2 = observeSql('test.barrier', async () => {
       await barrier;
     });
-    const q3 = observeSql(async () => {
+    const q3 = observeSql('test.barrier', async () => {
       await barrier;
     });
 

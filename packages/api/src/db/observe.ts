@@ -40,46 +40,66 @@ let inUse = 0;
 let waiting = 0;
 
 /**
- * Wrap a query with timing + slow-query logging. The closure runs the
- * actual query (using whatever `sql`/`db` the caller normally uses);
- * this wrapper only measures elapsed time and emits a log/breadcrumb
- * if the duration exceeds the threshold.
+ * Wrap a query with timing + slow-query logging.
+ *
+ * @param op   A short, stable operation label identifying the caller
+ *             (e.g. `'assets.findById'`, `'orgs.listForUser'`). The
+ *             label is included in the slow-query log line and the
+ *             Sentry breadcrumb so an on-call engineer can find the
+ *             offending repo function. It is NOT raw SQL — it survives
+ *             query rewrites and does not require hooking postgres-js.
+ *             Use `<repo>.<method>` convention.
+ * @param fn   The closure that performs the actual query. The wrapper
+ *             only measures elapsed time and emits a log/breadcrumb
+ *             if the duration exceeds the threshold.
  */
-export async function observeSql<T>(fn: () => Promise<T>): Promise<T> {
+export async function observeSql<T>(op: string, fn: () => Promise<T>): Promise<T> {
   const start = performance.now();
   inUse++;
+  // Track the outcome so the finally block can compute rowCount from
+  // it for the slow-query log. Drizzle queries return arrays; non-
+  // array results (single scalar, insert/update result objects) are
+  // reported as rowCount=undefined. A failed slow query is still
+  // interesting, so we log it with rowCount=undefined too.
+  let outcome: { ok: true; value: T } | { ok: false } = { ok: false };
   try {
-    return await fn();
+    const value = await fn();
+    outcome = { ok: true, value };
+    return value;
   } finally {
     inUse--;
     const durationMs = performance.now() - start;
     const threshold = loadConfig().SLOW_QUERY_MS;
     if (threshold === 0 || durationMs > threshold) {
-      emitSlowQuery(durationMs);
+      emitSlowQuery(op, durationMs, outcome.ok ? outcome.value : undefined);
     }
   }
 }
 
-function emitSlowQuery(durationMs: number): void {
+function emitSlowQuery(op: string, durationMs: number, result: unknown): void {
   const requestId = requestIdStore.getStore();
-  // Note: we don't capture the SQL text in this layer — the caller is
-  // the repo function, and threading the SQL string through would
-  // require changing every call site to pass it in. The Sentry
-  // transaction already has the route + status, which is enough to
-  // find the offending query in Neon. If we later want SQL text in
-  // the breadcrumb, we'd add an optional `sql` arg to observeSql.
-  const payload = {
-    evt: 'slow_query' as const,
-    durationMs: Math.round(durationMs),
-    requestId,
-  };
-  logger.warn(payload, 'slow query');
-
+  // Compute rowCount from the return value: Drizzle queries return
+  // arrays. Non-array results (single scalar, insert/update result
+  // objects) pass through as undefined. We deliberately do NOT try
+  // to count rows inside an object — the calling repo knows the
+  // shape better than we do.
+  const rowCount = Array.isArray(result) ? result.length : undefined;
+  const roundedMs = Math.round(durationMs);
+  // Wrap the entire emit body in one try/catch: if either the logger
+  // or the Sentry breadcrumb throws (custom transport failure,
+  // circular ref in payload, etc.), the throw must NOT propagate out
+  // of the finally block and replace the caller's return value. This
+  // is the spec's explicit trade-off — observability bugs never
+  // break the API.
   try {
+    logger.warn(
+      { evt: 'slow_query', op, durationMs: roundedMs, rowCount, requestId },
+      'slow query',
+    );
     addBreadcrumb({
       category: 'db',
       message: 'slow_query',
-      data: { durationMs: Math.round(durationMs) },
+      data: { op, durationMs: roundedMs, rowCount },
       level: 'warning',
     });
   } catch {

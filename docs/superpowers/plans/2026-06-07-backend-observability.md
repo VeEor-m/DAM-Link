@@ -33,10 +33,10 @@ Two implementation facts drive task ordering:
 | `packages/api/src/config.ts` | modify | Add `DB_POOL_MAX` (default 10) and `SLOW_QUERY_MS` (default 200) to Zod schema |
 | `packages/api/src/lib/sentry.ts` | modify | Add `addBreadcrumb` wrapper (matches `captureException` pattern) |
 | `packages/api/src/plugins/request-id.ts` | modify | Add AsyncLocalStorage.enterWith(req.id) so observeSql can read it |
-| `packages/api/src/db/observe.ts` | create | `observeSql<T>(fn)`, `getPoolStats()`, `_resetObserveForTests()`, exported `requestIdStore` ALS instance |
+| `packages/api/src/db/observe.ts` | create | `observeSql<T>(op, fn)`, `getPoolStats()`, `_resetObserveForTests()`, exported `requestIdStore` ALS instance |
 | `packages/api/src/db/client.ts` | modify | Read `DB_POOL_MAX` from config; expose `getDbPoolMax()` |
 | `packages/api/src/plugins/health.ts` | modify | Add `pool: {max, inUse, waiting}` to `/healthz` response |
-| `packages/api/src/repositories/assets.repo.ts` | modify | Wrap every function body with `await observeSql(() => ...)` |
+| `packages/api/src/repositories/assets.repo.ts` | modify | Wrap every function body with `await observeSql('assets.<method>', () => ...)` |
 | `packages/api/src/repositories/memberships.repo.ts` | modify | Same |
 | `packages/api/src/repositories/orgs.repo.ts` | modify | Same |
 | `packages/api/src/repositories/sessions.repo.ts` | modify | Same |
@@ -419,49 +419,62 @@ import { addBreadcrumb } from '../lib/sentry.js';
 let inUse = 0;
 let waiting = 0;
 
-const SLOW_QUERY_LOG_KEYS = ['evt', 'durationMs', 'sql', 'rowCount', 'requestId'] as const;
+const SLOW_QUERY_LOG_KEYS = ['evt', 'op', 'durationMs', 'rowCount', 'requestId'] as const;
 
 /**
- * Wrap a query with timing + slow-query logging. The closure runs the
- * actual query (using whatever `sql`/`db` the caller normally uses);
- * this wrapper only measures elapsed time and emits a log/breadcrumb
- * if the duration exceeds the threshold.
+ * Wrap a query with timing + slow-query logging.
+ *
+ * @param op   A short, stable operation label identifying the caller
+ *             (e.g. `'assets.findById'`, `'orgs.listForUser'`). The
+ *             label is included in the slow-query log line and the
+ *             Sentry breadcrumb so an on-call engineer can find the
+ *             offending repo function. Use `<repo>.<method>` convention.
+ * @param fn   The closure that performs the actual query.
  */
-export async function observeSql<T>(fn: () => Promise<T>): Promise<T> {
+export async function observeSql<T>(op: string, fn: () => Promise<T>): Promise<T> {
   const start = performance.now();
   inUse++;
+  // Track the outcome so the finally block can compute rowCount from
+  // it for the slow-query log. Drizzle queries return arrays; non-
+  // array results (single scalar, insert/update result objects) are
+  // reported as rowCount=undefined.
+  let outcome: { ok: true; value: T } | { ok: false } = { ok: false };
   try {
-    return await fn();
+    const value = await fn();
+    outcome = { ok: true, value };
+    return value;
   } finally {
     inUse--;
     const durationMs = performance.now() - start;
     const threshold = loadConfig().SLOW_QUERY_MS;
     if (threshold === 0 || durationMs > threshold) {
-      emitSlowQuery(durationMs);
+      emitSlowQuery(op, durationMs, outcome.ok ? outcome.value : undefined);
     }
   }
 }
 
-function emitSlowQuery(durationMs: number): void {
+function emitSlowQuery(op: string, durationMs: number, result: unknown): void {
   const requestId = requestIdStore.getStore();
-  // Note: we don't capture the SQL text in this layer — the caller is
-  // the repo function, and threading the SQL string through would
-  // require changing every call site to pass it in. The Sentry
-  // transaction already has the route + status, which is enough to
-  // find the offending query in Neon. If we later want SQL text in
-  // the breadcrumb, we'd add an optional `sql` arg to observeSql.
-  const payload = {
-    evt: 'slow_query' as const,
-    durationMs: Math.round(durationMs),
-    requestId,
-  };
-  logger.warn(payload, 'slow query');
-
+  // rowCount is computed from the return value. Drizzle queries
+  // return arrays. Non-array results (single scalar, insert/update
+  // result objects) pass through as undefined.
+  const rowCount = Array.isArray(result) ? result.length : undefined;
+  const roundedMs = Math.round(durationMs);
+  // Wrap the entire emit body in one try/catch: if either the logger
+  // or the Sentry breadcrumb throws (custom transport failure,
+  // circular ref in payload, etc.), the throw must NOT propagate out
+  // of the finally block and replace the caller's return value. This
+  // is the spec's explicit trade-off — observability bugs never
+  // break the API.
   try {
+    logger.warn(
+      { evt: 'slow_query', op, durationMs: roundedMs, rowCount, requestId },
+      'slow query',
+    );
     addBreadcrumb({
       category: 'db',
       message: 'slow_query',
-      data: { durationMs: Math.round(durationMs) },
+      data: { op, durationMs: roundedMs, rowCount },
       level: 'warning',
     });
   } catch {
@@ -509,14 +522,14 @@ describe('observeSql', () => {
   });
 
   it('returns the wrapped result unchanged', async () => {
-    const result = await observeSql(async () => 42);
+    const result = await observeSql('test.fast', async () => 42);
     expect(result).toBe(42);
   });
 
   it('does NOT log when query is fast (< threshold)', async () => {
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
     // Default SLOW_QUERY_MS=200; a 1ms query must not log.
-    const result = await observeSql(async () => {
+    const result = await observeSql('test.fast', async () => {
       await new Promise((r) => setTimeout(r, 1));
       return 'ok';
     });
@@ -524,26 +537,30 @@ describe('observeSql', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  it('DOES log with evt=slow_query when query is slow (> threshold)', async () => {
+  it('DOES log with evt=slow_query, op, and rowCount when query is slow (> threshold)', async () => {
     process.env.SLOW_QUERY_MS = '5';
     _resetConfigForTests();
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
-    await observeSql(async () => {
+    // Return an array so rowCount=length is asserted (3 elements).
+    await observeSql('assets.list', async () => {
       await new Promise((r) => setTimeout(r, 30));
+      return [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
     });
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const [payload, message] = warnSpy.mock.calls[0];
     expect(payload.evt).toBe('slow_query');
+    expect(payload.op).toBe('assets.list');
     expect(payload.durationMs).toBeGreaterThanOrEqual(5);
+    expect(payload.rowCount).toBe(3);
     expect(message).toBe('slow query');
   });
 
   it('decrements inUse even when the callback throws', async () => {
     const { getPoolStats } = await import('../src/db/observe.js');
     await expect(
-      observeSql(async () => {
+      observeSql('test.throwing', async () => {
         throw new Error('boom');
       }),
     ).rejects.toThrow('boom');
@@ -552,7 +569,7 @@ describe('observeSql', () => {
 
   it('propagates the original exception (does NOT swallow)', async () => {
     await expect(
-      observeSql(async () => {
+      observeSql('test.typed-throw', async () => {
         throw new TypeError('original error');
       }),
     ).rejects.toBeInstanceOf(TypeError);
@@ -589,8 +606,8 @@ describe('observeSql — SLOW_QUERY_MS threshold', () => {
     _resetConfigForTests();
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
-    await observeSql(async () => 'fast');
-    await observeSql(async () => 'also fast');
+    await observeSql('test.threshold-zero', async () => 'fast');
+    await observeSql('test.threshold-zero', async () => 'also fast');
 
     expect(warnSpy).toHaveBeenCalledTimes(2);
   });
@@ -600,7 +617,7 @@ describe('observeSql — SLOW_QUERY_MS threshold', () => {
     _resetConfigForTests();
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
-    await observeSql(async () => {
+    await observeSql('test.threshold-high', async () => {
       await new Promise((r) => setTimeout(r, 5));
     });
 
@@ -643,12 +660,13 @@ describe('observeSql — requestId propagation', () => {
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
     await requestIdStore.run('req-abc-123', async () => {
-      await observeSql(async () => 'fast');
+      await observeSql('test.requestId', async () => 'fast');
     });
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const [payload] = warnSpy.mock.calls[0];
     expect(payload.requestId).toBe('req-abc-123');
+    expect(payload.op).toBe('test.requestId');
   });
 
   it('requestId is undefined when the store is empty (e.g. background job)', async () => {
@@ -656,7 +674,7 @@ describe('observeSql — requestId propagation', () => {
     _resetConfigForTests();
     const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => logger);
 
-    await observeSql(async () => 'fast');
+    await observeSql('test.no-requestId', async () => 'fast');
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const [payload] = warnSpy.mock.calls[0];
@@ -700,16 +718,17 @@ describe('observeSql — Sentry breadcrumb', () => {
     vi.restoreAllMocks();
   });
 
-  it('calls addBreadcrumb with category=db on a slow query', async () => {
+  it('calls addBreadcrumb with category=db, op, and durationMs on a slow query', async () => {
     process.env.SLOW_QUERY_MS = '0';
     _resetConfigForTests();
 
-    await observeSql(async () => 'fast');
+    await observeSql('assets.findById', async () => 'fast');
 
     expect(vi.mocked(addBreadcrumb)).toHaveBeenCalledTimes(1);
     const arg = vi.mocked(addBreadcrumb).mock.calls[0][0];
     expect(arg.category).toBe('db');
     expect(arg.message).toBe('slow_query');
+    expect(arg.data?.op).toBe('assets.findById');
     expect(arg.data?.durationMs).toBeGreaterThanOrEqual(0);
     expect(arg.level).toBe('warning');
   });
@@ -718,7 +737,7 @@ describe('observeSql — Sentry breadcrumb', () => {
     process.env.SLOW_QUERY_MS = '10000';
     _resetConfigForTests();
 
-    await observeSql(async () => {
+    await observeSql('test.fast-breadcrumb', async () => {
       await new Promise((r) => setTimeout(r, 1));
     });
 
@@ -774,7 +793,7 @@ describe('getPoolStats', () => {
     const [p1, r1, p2, r2, p3, r3] = release;
 
     const queries = [p1, p2, p3].map(() =>
-      observeSql(async () => {
+      observeSql('test.barrier', async () => {
         // Each query parks on its own promise until released.
         await new Promise<void>((res) => {
           // Reach into the array by closure index — simpler than restructuring.
@@ -820,13 +839,13 @@ describe('getPoolStats', () => {
       release = res;
     });
 
-    const q1 = observeSql(async () => {
+    const q1 = observeSql('test.barrier', async () => {
       await barrier;
     });
-    const q2 = observeSql(async () => {
+    const q2 = observeSql('test.barrier', async () => {
       await barrier;
     });
-    const q3 = observeSql(async () => {
+    const q3 = observeSql('test.barrier', async () => {
       await barrier;
     });
 
@@ -1115,7 +1134,7 @@ describe('GET /healthz — pool saturation signal', () => {
     const db = getDb();
     const { observeSql } = await import('../src/db/observe.js');
 
-    const slowQuery = observeSql(async () => {
+    const slowQuery = observeSql('test.health-pool', async () => {
       await db.execute('SELECT pg_sleep(0.3)');
     });
 
@@ -1197,7 +1216,7 @@ becomes:
 
 ```ts
 export async function foo(args): Promise<Ret> {
-  return await observeSql(async () => {
+  return await observeSql('assets.foo', async () => {
     const db = getDb();
     return await db.select(...);
   });
@@ -1225,7 +1244,7 @@ The functions to wrap in `assets.repo.ts` (as of `git show 326a522:packages/api/
 - `findShareLinksForAsset` (if delegated here)
 - `findAssetsByIds` (for batch operations)
 
-For each one: open the file, find the `export async function X(...)` line, indent the body one level deeper, and wrap with `return await observeSql(async () => { ... });`. The test suite will catch any logic regressions.
+For each one: open the file, find the `export async function X(...)` line, indent the body one level deeper, and wrap with `return await observeSql('assets.<methodName>', async () => { ... });`. The test suite will catch any logic regressions.
 
 - [ ] **Step 4: Run the assets test suite to confirm no regressions**
 
@@ -1276,7 +1295,7 @@ This task is mechanical. Do it the same way as Task 7: add the import, wrap each
 
 In `packages/api/src/repositories/memberships.repo.ts`:
 - Add `import { observeSql } from '../db/observe.js';`
-- Wrap every exported function body with `return await observeSql(async () => { ... });`
+- Wrap every exported function body with `return await observeSql('memberships.<methodName>', async () => { ... });`
 - The functions to wrap: `findMembership`, `listMemberships`, `isMember`, `addMember`, `removeMember`, `updateMemberRole`, `countOwners`, `findOwnerMembership` (and any others — use `git grep "export async function" packages/api/src/repositories/memberships.repo.ts` to enumerate)
 
 - [ ] **Step 2: Run memberships tests**
@@ -1698,7 +1717,7 @@ The MEMORY.md update follows the same template as the previous 18 plans. Use thi
 - [ ] **No placeholders**: every code block in every step is complete. Search the plan for `TBD`, `TODO`, `fill in`, `similar to` — there should be none (except the explicit "Implementation note" comment in the requestIdStore spec).
 
 - [ ] **Type consistency**:
-  - `observeSql<T>(fn: () => Promise<T>): Promise<T>` — used identically in tasks 4, 7, 8
+  - `observeSql<T>(op: string, fn: () => Promise<T>): Promise<T>` — used identically in tasks 4, 7, 8
   - `getPoolStats(): {max, inUse, waiting}` — same in tasks 4, 6
   - `requestIdStore: AsyncLocalStorage<string>` — used in tasks 3, 4 (Step 6 test)
   - `addBreadcrumb({category, message, data, level?})` — same in tasks 2, 4 (Step 8)
