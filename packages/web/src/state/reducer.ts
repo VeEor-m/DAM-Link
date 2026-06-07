@@ -141,6 +141,8 @@ export function reducer(state: AppState, action: Action): AppState {
         ),
       };
     }
+    case 'SET_SIDEBAR_COUNTS':
+      return { ...state, ui: { ...state.ui, sidebarCounts: action.counts } };
     default:
       return state;
   }
