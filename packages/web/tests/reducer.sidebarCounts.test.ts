@@ -19,6 +19,7 @@ function makeState(): AppState {
       sortDir: 'desc',
       activeOrgId: 'org-1',
       sidebarCounts: null,
+      lightboxAssetId: null,
     },
   };
 }

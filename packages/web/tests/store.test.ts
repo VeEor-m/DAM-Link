@@ -23,6 +23,7 @@ function makeUI(overrides: Partial<UIState> = {}): UIState {
     sortDir: 'desc',
     activeOrgId: null,
     sidebarCounts: null,
+    lightboxAssetId: null,
     ...overrides,
   };
 }

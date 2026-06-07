@@ -35,7 +35,11 @@ export type Action =
   | { type: 'BATCH_TOGGLE_FAVORITE'; ids: string[] }
   | { type: 'BATCH_ADD_TAG'; ids: string[]; tag: string }
   | { type: 'BATCH_REMOVE_TAG'; ids: string[]; tag: string }
-  | { type: 'SET_SIDEBAR_COUNTS'; counts: SidebarCounts };
+  | { type: 'SET_SIDEBAR_COUNTS'; counts: SidebarCounts }
+  // Lightbox
+  | { type: 'OPEN_LIGHTBOX'; assetId: string }
+  | { type: 'CLOSE_LIGHTBOX' }
+  | { type: 'LIGHTBOX_NAVIGATE'; assetId: string };
 
 // `AppState` is the local shape — defined in store.tsx; we use a structural
 // type to avoid a circular import. Keep this in sync with the real
@@ -54,5 +58,6 @@ interface AppState {
     sortDir: SortDir;
     activeOrgId: string | null;
     sidebarCounts: SidebarCounts | null;
+    lightboxAssetId: string | null;
   };
 }
