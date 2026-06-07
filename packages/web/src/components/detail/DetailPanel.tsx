@@ -92,7 +92,7 @@ export function DetailPanel({
   }
 
   return (
-    <div className={styles.detail} data-variant={variant}>
+    <div className={styles.detail} data-variant={variant} data-anim="detail-panel">
       {onClose && (
         <button
           type="button"

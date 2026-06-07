@@ -68,6 +68,7 @@ export function AssetCard({
     <div
       role="button"
       tabIndex={0}
+      data-anim="card"
       className={`${styles.card} ${selected ? styles.selected : ''} ${hasCheckbox ? styles.hasCheckbox : ''}`}
       onClick={onClick}
       onKeyDown={onKeyDown}

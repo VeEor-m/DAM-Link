@@ -63,6 +63,7 @@ export function Toolbar({
       className={`${styles.toolbar} ${compact ? styles.compact : ''}`}
       role="toolbar"
       aria-label="主工具栏"
+      data-anim="toolbar-row"
     >
       {compact && onMenuClick && (
         <button

@@ -48,6 +48,7 @@ export function AssetListRow({
   return (
     <div
       role="row"
+      data-anim="row"
       className={`${styles.row} ${selected ? styles.selected : ''}`}
     >
       {onToggleMultiSelect && (

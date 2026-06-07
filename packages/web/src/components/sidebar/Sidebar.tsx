@@ -93,7 +93,7 @@ export function Sidebar({ selection, onSelect, counts }: SidebarProps) {
   const hiddenCount = sortedTags.length - TAG_COLLAPSE_THRESHOLD;
 
   return (
-    <div className={styles.sidebar}>
+    <div className={styles.sidebar} data-anim="sidebar-col">
       <ItemRow
         active={isActive(selection, { kind: 'all' })}
         onClick={() => onSelect({ kind: 'all' })}
