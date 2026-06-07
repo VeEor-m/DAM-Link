@@ -15,7 +15,7 @@ Thumbs.db
 
 # build artifacts
 packages/*/dist/
-packages/*/.tsbuildinfo
+packages/*/*.tsbuildinfo
 
 # drizzle
 packages/api/drizzle/meta/_journal.json.bak
