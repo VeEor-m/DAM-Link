@@ -1,4 +1,5 @@
 import type {
+  AppState,
   Asset,
   AssetType,
   DateBucket,
@@ -80,6 +81,14 @@ export function selectVisibleAssets(assets: Asset[], ui: UIState): Asset[] {
       matchesFilters(a, ui.filter) &&
       matchesSearch(a, ui.searchQuery),
   );
+}
+
+/** Visible asset ids in the same order as `selectVisibleAssets`.
+ *  Lightweight wrapper for the lightbox: a row of ids is enough to
+ *  drive next/prev without paying for the full asset object on each
+ *  change. */
+export function selectVisibleAssetIds(state: AppState): string[] {
+  return selectVisibleAssets(state.assets, state.ui).map((a) => a.id);
 }
 
 export interface SidebarCounts {
