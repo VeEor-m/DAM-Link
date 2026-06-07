@@ -72,6 +72,9 @@ export interface UIState {
    *  state so it persists across view-mode switches and sessions. */
   sortKey: SortKey;
   sortDir: SortDir;
+  /** Active org id. Loaded by `loadState()` from the first org the user
+   *  belongs to. `null` when the user has no orgs yet. */
+  activeOrgId: string | null;
 }
 
 export interface AppState {

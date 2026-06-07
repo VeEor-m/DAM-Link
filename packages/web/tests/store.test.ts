@@ -21,6 +21,7 @@ function makeUI(overrides: Partial<UIState> = {}): UIState {
     selectedIds: [],
     sortKey: 'date',
     sortDir: 'desc',
+    activeOrgId: null,
     ...overrides,
   };
 }

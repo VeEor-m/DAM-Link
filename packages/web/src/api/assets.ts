@@ -38,3 +38,7 @@ export async function emptyTrash(orgId: string): Promise<{ deletedCount: number 
 export async function sidebarCounts(orgId: string): Promise<SidebarCounts> {
   return api(`/orgs/${orgId}/assets/sidebar-counts`);
 }
+
+export async function getDownloadUrl(orgId: string, id: string): Promise<{ downloadUrl: string }> {
+  return api<{ downloadUrl: string }>(`/orgs/${orgId}/assets/${id}/download-url`);
+}

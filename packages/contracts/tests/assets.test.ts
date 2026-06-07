@@ -5,6 +5,7 @@ import {
   UpdateAssetInputSchema,
   AssetListQuerySchema,
   SidebarCountsSchema,
+  DownloadUrlResponseSchema,
 } from '../src/assets.js';
 
 const validAsset = {
@@ -204,5 +205,18 @@ describe('SidebarCountsSchema', () => {
         trash: 0,
       }),
     ).toThrow();
+  });
+});
+
+describe('DownloadUrlResponseSchema', () => {
+  it('accepts a valid download URL response', () => {
+    const ok = { data: { downloadUrl: 'https://cdn.example.com/x.png?X-Amz-Signature=abc' } };
+    expect(DownloadUrlResponseSchema.parse(ok)).toEqual(ok);
+  });
+  it('rejects when downloadUrl is missing', () => {
+    expect(() => DownloadUrlResponseSchema.parse({ data: {} })).toThrow();
+  });
+  it('rejects when downloadUrl is not a URL', () => {
+    expect(() => DownloadUrlResponseSchema.parse({ data: { downloadUrl: 'not-a-url' } })).toThrow();
   });
 });

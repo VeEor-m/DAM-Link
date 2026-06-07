@@ -40,7 +40,7 @@ export async function loadState(): Promise<AppState | null> {
         // are not generated in the API-backed store.
         _thumbnailUrl: a.thumbnailUrl ?? null,
       })),
-      ui: defaultUI(),
+      ui: { ...defaultUI(), activeOrgId: firstOrg.org.id },
     };
   } catch {
     return null;
@@ -59,6 +59,7 @@ function defaultUI(): UIState {
     selectedIds: [],
     sortKey: 'date',
     sortDir: 'desc',
+    activeOrgId: null,
   };
 }
 

@@ -168,6 +168,7 @@ describe('selectVisibleAssets', () => {
       selectedIds: [],
       sortKey: 'date',
       sortDir: 'desc',
+      activeOrgId: null,
     });
     expect(visible.every((a) => a.type === 'image')).toBe(true);
     expect(visible.every((a) => a.deletedAt === null)).toBe(true);
