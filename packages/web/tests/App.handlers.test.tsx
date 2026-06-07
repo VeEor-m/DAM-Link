@@ -236,6 +236,87 @@ describe('App — BatchActionBar handlers', () => {
       expect(ids).toContain('22222222-2222-4222-8222-222222222222');
     });
   });
+
+  // ── Lightbox open / close / navigate (Task 20) ──────────────────────
+  //
+  // The reducer's OPEN/CLOSE/NAVIGATE cases are unit-tested in
+  // `reducer.lightbox.test.ts` (Task 12). These 3 cases are integration
+  // tests: they prove that App.tsx wires the card click → OPEN_LIGHTBOX,
+  // the Escape key → CLOSE_LIGHTBOX, and a sidebar selection change →
+  // CLOSE_LIGHTBOX. Assertions are on observable UI state (the Lightbox
+  // dialog's presence in the DOM), not on dispatched actions — the file
+  // doesn't have a dispatched-actions tracker.
+
+  it('clicking a card opens the Lightbox dialog', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-open.png' }));
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // The AssetCard has role="button" and aria-label "${name}，${size}"
+    // (AssetCard.tsx:69,75). Task 19 wires its onClick to dispatch
+    // OPEN_LIGHTBOX.
+    const card = screen.getByRole('button', { name: /lightbox-open\.png/i });
+    await user.click(card);
+
+    // Lightbox.tsx renders the dialog with data-testid="lightbox" inside
+    // a portal, so it appears in document.body once the asset is set.
+    expect(await screen.findByTestId('lightbox')).toBeInTheDocument();
+
+    // Clean up — close the lightbox so the test ends in a sane state
+    // (the floating ✕ is the same button selectAsset() uses).
+    await user.click(screen.getByTestId('lightbox-floating-close'));
+  });
+
+  it('pressing Escape while the Lightbox is open closes it', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-esc.png' }));
+
+    // Open the lightbox.
+    const card = screen.getByRole('button', { name: /lightbox-esc\.png/i });
+    await user.click(card);
+    await screen.findByTestId('lightbox');
+
+    // The Lightbox auto-focuses its dialog (tabIndex={-1} + useEffect on
+    // open, Lightbox.tsx:36-48) and attaches a window-level keydown
+    // listener (Lightbox.tsx:51-77). useLightbox's onKeyDown maps Escape
+    // to onClose → dispatch CLOSE_LIGHTBOX (useLightbox.ts:46).
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('lightbox')).toBeNull();
+    });
+
+    // The page didn't navigate — the asset card is still visible. Also
+    // the floating ✕ is gone, which proves the lightbox actually
+    // unmounted (not just re-rendered).
+    expect(screen.getByText('lightbox-esc.png')).toBeInTheDocument();
+    expect(screen.queryByTestId('lightbox-floating-close')).toBeNull();
+  });
+
+  it('changing the sidebar selection while the Lightbox is open closes it', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-nav.png' }));
+
+    // Open the lightbox.
+    const card = screen.getByRole('button', { name: /lightbox-nav\.png/i });
+    await user.click(card);
+    await screen.findByTestId('lightbox');
+
+    // Click the 图片 sidebar entry (Sidebar.tsx:104-110 — IconPhoto +
+    // span with text "图片", aria-hidden icon so the accessible name is
+    // exactly "图片"). Its onClick calls onSelect({ kind: 'type', type:
+    // 'image' }), which updates state.ui.selection. The useEffect in
+    // App.tsx:233-238 watches selection/searchQuery/filter and dispatches
+    // CLOSE_LIGHTBOX whenever the visible list changes underneath the
+    // open lightbox.
+    await user.click(screen.getByRole('button', { name: /^图片$/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('lightbox')).toBeNull();
+    });
+  });
 });
 
 describe('App DetailPanel handlers — API wiring', () => {
