@@ -1,0 +1,14 @@
+{
+  "run_id": 1780833763,
+  "email": "p20-verify-1780833763@example.com",
+  "screenshots": [
+    "p20-after-login-shell-mounted.png",
+    "p20-mid-mount.png",
+    "p20-detail-open.png",
+    "p20-view-mode-toggle.png",
+    "p20-phone-bottom-sheet.png",
+    "p20-reduced-motion.png"
+  ],
+  "passed": true,
+  "errors": []
+}
