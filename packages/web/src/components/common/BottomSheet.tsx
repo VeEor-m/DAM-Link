@@ -6,6 +6,8 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import { createBottomSheetTimeline } from '../../lib/animations/detail-panel.js';
 import styles from './BottomSheet.module.css';
 
 interface BottomSheetProps {
@@ -180,6 +182,22 @@ export function BottomSheet({
       document.removeEventListener('pointercancel', onEnd);
     };
   }, [open, onClose, peekHeight, expandedHeight]);
+
+  // GSAP open/close. We use the existing sheetRef (defined for the drag
+  // handle) as the scope and animation target. The factory takes a
+  // `direction: 'open' | 'close'`; we derive it from the open prop.
+  useGSAP(
+    () => {
+      if (!sheetRef.current) return;
+      const direction: 'open' | 'close' = open ? 'open' : 'close';
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        createBottomSheetTimeline(sheetRef.current!, direction).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: sheetRef, dependencies: [open] },
+  );
 
   if (!open) return null;
 
