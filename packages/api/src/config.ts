@@ -10,6 +10,8 @@ const ConfigSchema = z.object({
   API_PUBLIC_URL: z.string().url().default('http://localhost:3000'),
 
   DATABASE_URL: z.string().min(1),
+  DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+  SLOW_QUERY_MS: z.coerce.number().int().nonnegative().default(200),
 
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().default('us-east-1'),
