@@ -1,7 +1,7 @@
 // packages/web/tests/store.wrappedDispatch.test.tsx
 import { describe, it, expect, vi } from 'vitest';
 import { render, act, waitFor } from '@testing-library/react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { StoreProvider } from '../src/state/store';
 import { useStore } from '../src/hooks/useStore';
 import type { Action } from '../src/state/actions';
@@ -18,18 +18,27 @@ vi.mock('../src/state/persistence', () => ({
   saveState: vi.fn(),
 }));
 
-/** Test consumer that captures every `dispatch` reference it sees on
- *  re-render. We use a ref + push so we can assert "did the reference
- *  change after a non-asset action?". */
+/** Test consumer that pushes the current `dispatch` reference to `bag.refs`
+ *  on every state change. The effect depends on `state` (not `dispatch`)
+ *  so it re-runs on every reducer action — and we capture the dispatch
+ *  value from the render's closure.
+ *
+ *  Why `state` in deps and not `dispatch`: with the fix, `dispatch` is
+ *  stable across re-renders, so an effect with `[dispatch]` would never
+ *  re-run after the first render and we'd never see a second push. The
+ *  probe must re-render on every state change to expose the (potentially
+ *  new) dispatch reference; depending on `state` is the canonical way
+ *  to subscribe to "any reducer action" without depending on dispatch
+ *  stability.
+ *
+ *  Expected push behavior:
+ *    - With the bug: each push is a NEW dispatch reference
+ *    - With the fix: each push is the SAME dispatch reference */
 function DispatchProbe({ bag }: { bag: { refs: Dispatch<Action>[] } }) {
-  const { dispatch } = useStore();
-  const last = useRef<Dispatch<Action> | null>(null);
+  const { state, dispatch } = useStore();
   useEffect(() => {
-    if (last.current !== dispatch) {
-      last.current = dispatch;
-      bag.refs.push(dispatch);
-    }
-  }, [dispatch, bag]);
+    bag.refs.push(dispatch);
+  }, [state, dispatch]);
   return null;
 }
 
@@ -55,7 +64,7 @@ describe('StoreProvider — wrappedDispatch stability', () => {
       initial({ type: 'SET_SEARCH', query: 'logo' });
     });
 
-    // Wait for Probe to re-render and push the new dispatch (if any).
+    // Wait for Probe to re-render at least once after the dispatch.
     await waitFor(() => expect(bag.refs.length).toBeGreaterThan(lengthBefore));
     const after = bag.refs[bag.refs.length - 1];
 
@@ -74,22 +83,24 @@ describe('StoreProvider — wrappedDispatch stability', () => {
 
     await waitFor(() => expect(bag.refs.length).toBeGreaterThan(0));
     const initial = bag.refs[bag.refs.length - 1];
+    const lengthBeforeView = bag.refs.length;
 
+    // SET_VIEW_MODE field is `mode` per actions.ts:15, NOT `viewMode`.
     act(() => {
-      initial({ type: 'SET_VIEW_MODE', viewMode: 'list' });
+      initial({ type: 'SET_VIEW_MODE', mode: 'list' });
     });
-    await waitFor(() => expect(bag.refs[bag.refs.length - 1]).not.toBe(initial));
-    const afterView = bag.refs[bag.refs.length - 1];
+    await waitFor(() =>
+      expect(bag.refs.length).toBeGreaterThan(lengthBeforeView),
+    );
+    expect(bag.refs[bag.refs.length - 1]).toBe(initial);
 
+    const lengthBeforeSel = bag.refs.length;
     act(() => {
-      afterView({ type: 'SET_SELECTION', selection: { kind: 'tag', tag: 'logo' } });
+      initial({ type: 'SET_SELECTION', selection: { kind: 'tag', tag: 'logo' } });
     });
-    await waitFor(() => expect(bag.refs[bag.refs.length - 1]).not.toBe(afterView));
-    const afterSel = bag.refs[bag.refs.length - 1];
-
-    // BOTH must still be the same reference as `initial`. None of these
-    // actions touch state.assets.
-    expect(afterView).toBe(initial);
-    expect(afterSel).toBe(initial);
+    await waitFor(() =>
+      expect(bag.refs.length).toBeGreaterThan(lengthBeforeSel),
+    );
+    expect(bag.refs[bag.refs.length - 1]).toBe(initial);
   });
 });
