@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as SentryNode from '@sentry/node';
 
 // Mock @sentry/node BEFORE importing our wrapper, so the wrapper
 // captures the mocked `addBreadcrumb` and `getClient` references at
@@ -7,7 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // assignment work for spying — module-level vi.mock is the only way
 // to observe calls to Sentry.addBreadcrumb from our wrapper.
 vi.mock('@sentry/node', async () => {
-  const actual = await vi.importActual<typeof import('@sentry/node')>('@sentry/node');
+  const actual = await vi.importActual<typeof SentryNode>('@sentry/node');
   return {
     ...actual,
     addBreadcrumb: vi.fn(),

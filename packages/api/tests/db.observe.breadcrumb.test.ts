@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type * as SentryWrapper from '../src/lib/sentry.js';
 import { observeSql, _resetObserveForTests } from '../src/db/observe.js';
 import { addBreadcrumb } from '../src/lib/sentry.js';
 import { _resetConfigForTests } from '../src/config.js';
 
 vi.mock('../src/lib/sentry.js', async () => {
-  const actual = await vi.importActual<typeof import('../src/lib/sentry.js')>(
+  const actual = await vi.importActual<typeof SentryWrapper>(
     '../src/lib/sentry.js',
   );
   return {
