@@ -40,6 +40,19 @@ describe('GET /healthz', () => {
     expect(second.statusCode).toBe(200);
     expect(second.json().status).toBe('ok');
   });
+
+  it('response includes a pool field with max, inUse, waiting (waiting is always 0)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/healthz' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.pool).toBeDefined();
+    expect(typeof body.pool.max).toBe('number');
+    expect(typeof body.pool.inUse).toBe('number');
+    expect(typeof body.pool.waiting).toBe('number');
+    expect(body.pool.max).toBeGreaterThan(0);
+    expect(body.pool.inUse).toBeGreaterThanOrEqual(0);
+    expect(body.pool.waiting).toBe(0); // postgres-js 3.4.5 has no pool events
+  });
 });
 
 describe('GET /version', () => {
