@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -59,18 +60,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveState(state);
   }, [state]);
 
-  // Fix up computed patches (TOGGLE_FAVORITE, ADD_TAG, REMOVE_TAG,
-  // BATCH_TOGGLE_FAVORITE, BATCH_ADD_TAG, BATCH_REMOVE_TAG) by reading the
-  // current asset and dispatching the actual UPDATE_ASSET. This keeps the
-  // reducer pure and the patch function non-special.
-  // Wrapped in useCallback so consumers that put `dispatch` in a dependency
-  // array don't see a fresh reference on every state change (which would
-  // re-run their effects). `state` is a dep because the computed patches
-  // read from the current assets; the callback is therefore stable until
-  // state itself changes, which is when consumers would re-run anyway.
+  // Ref-mirror of `state` so the dispatch callback below can read the
+  // latest `state.assets` (for TOGGLE_FAVORITE / ADD_TAG / REMOVE_TAG
+  // / BATCH_* computed patches) WITHOUT making itself depend on
+  // `state`. Without the ref, the useCallback's dep array would have
+  // to include `state`, which means every reducer action would
+  // recreate wrappedDispatch — which in turn makes every consumer
+  // effect that puts `dispatch` in its dep array re-run on every
+  // state change (see App.tsx's sidebar-counts refetch for the
+  // canonical offender: the feedback loop produced ~2 fetches/sec).
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  // STABLE across all state changes (deps: [dispatch] only — the raw
+  // useReducer dispatch is guaranteed stable by React). The callback
+  // reads current state via `stateRef.current`, not via the closure.
   const wrappedDispatch = useCallback<React.Dispatch<Action>>((action) => {
     if (action.type === 'TOGGLE_FAVORITE') {
-      const a = state.assets.find((x) => x.id === action.id);
+      const a = stateRef.current.assets.find((x) => x.id === action.id);
       if (a) {
         dispatch({
           type: 'UPDATE_ASSET',
@@ -81,7 +90,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (action.type === 'ADD_TAG') {
-      const a = state.assets.find((x) => x.id === action.id);
+      const a = stateRef.current.assets.find((x) => x.id === action.id);
       if (a && !a.tags.includes(action.tag)) {
         dispatch({
           type: 'UPDATE_ASSET',
@@ -92,7 +101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (action.type === 'REMOVE_TAG') {
-      const a = state.assets.find((x) => x.id === action.id);
+      const a = stateRef.current.assets.find((x) => x.id === action.id);
       if (a) {
         dispatch({
           type: 'UPDATE_ASSET',
@@ -104,7 +113,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     if (action.type === 'BATCH_TOGGLE_FAVORITE') {
       for (const id of action.ids) {
-        const a = state.assets.find((x) => x.id === id);
+        const a = stateRef.current.assets.find((x) => x.id === id);
         if (a) {
           dispatch({
             type: 'UPDATE_ASSET',
@@ -117,7 +126,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     if (action.type === 'BATCH_ADD_TAG') {
       for (const id of action.ids) {
-        const a = state.assets.find((x) => x.id === id);
+        const a = stateRef.current.assets.find((x) => x.id === id);
         if (a && !a.tags.includes(action.tag)) {
           dispatch({
             type: 'UPDATE_ASSET',
@@ -130,7 +139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     if (action.type === 'BATCH_REMOVE_TAG') {
       for (const id of action.ids) {
-        const a = state.assets.find((x) => x.id === id);
+        const a = stateRef.current.assets.find((x) => x.id === id);
         if (a) {
           dispatch({
             type: 'UPDATE_ASSET',
@@ -142,7 +151,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return;
     }
     dispatch(action);
-  }, [state, dispatch]);
+  }, [dispatch]);
 
   if (error) return <div style={{ padding: 32 }}>Error: {error}</div>;
   if (!hydrated) return <div style={{ padding: 32 }}>Loading…</div>;
