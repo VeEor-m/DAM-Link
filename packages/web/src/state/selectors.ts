@@ -91,6 +91,31 @@ export function selectVisibleAssetIds(state: AppState): string[] {
   return selectVisibleAssets(state.assets, state.ui).map((a) => a.id);
 }
 
+/** Asset types the Lightbox can actually preview.
+ *  The Lightbox routes to `<MediaStage>` which has a switch on
+ *  `asset.type`; anything outside this set would render an empty
+ *  stage (no audio / document preview UI). The card-click handler
+ *  in App.tsx (`handleSelectAsset`) already only opens the lightbox
+ *  for these types, but the prev/next chevrons + thumbnail strip
+ *  are driven by `visibleIds`. Without this filter, arrow-key
+ *  navigation can walk into a non-previewable asset and leave the
+ *  center blank (the bug fixed in `lightbox-filter-non-previewable`). */
+export const PREVIEWABLE_ASSET_TYPES: ReadonlySet<AssetType> = new Set<AssetType>([
+  'image',
+  'video',
+]);
+
+/** Like `selectVisibleAssetIds`, but excludes asset types the lightbox
+ *  can't preview. Used by App.tsx to scope both the chevron prev/next
+ *  chain (`useLightbox`) and the `NeighborStrip` to previewable items,
+ *  so arrow-key navigation can never land on a document/audio and
+ *  render an empty MediaStage. */
+export function selectLightboxVisibleAssetIds(state: AppState): string[] {
+  return selectVisibleAssets(state.assets, state.ui)
+    .filter((a) => PREVIEWABLE_ASSET_TYPES.has(a.type))
+    .map((a) => a.id);
+}
+
 export interface SidebarCounts {
   all: number;
   image: number;
