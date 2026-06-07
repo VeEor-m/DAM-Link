@@ -16,6 +16,8 @@ import {
   formatDims,
   formatDuration,
 } from '../../utils/format';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import { createSideDetailPanelTimeline } from '../../lib/animations/detail-panel.js';
 import { TagEditor } from './TagEditor';
 import styles from './DetailPanel.module.css';
 
@@ -66,6 +68,28 @@ export function DetailPanel({
     }
   }, [editing, asset?.name]);
 
+  const prevAssetIdRef = useRef<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useGSAP(
+    () => {
+      if (!panelRef.current) return;
+      const prev = prevAssetIdRef.current;
+      const curr = asset?.id ?? null;
+      let direction: 'open' | 'close' | null = null;
+      if (prev === null && curr !== null) direction = 'open';
+      else if (prev !== null && curr === null) direction = 'close';
+      prevAssetIdRef.current = curr;
+      if (direction === null) return; // no-op on first mount and on asset swap
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        createSideDetailPanelTimeline(panelRef.current!, direction!).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: panelRef, dependencies: [asset?.id ?? null] },
+  );
+
   if (!asset) {
     return (
       <div className={styles.empty}>
@@ -92,7 +116,12 @@ export function DetailPanel({
   }
 
   return (
-    <div className={styles.detail} data-variant={variant} data-anim="detail-panel">
+    <div
+      ref={panelRef}
+      className={styles.detail}
+      data-variant={variant}
+      data-anim="detail-panel"
+    >
       {onClose && (
         <button
           type="button"
