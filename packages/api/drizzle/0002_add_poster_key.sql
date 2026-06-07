@@ -1,0 +1,1 @@
+ALTER TABLE "assets" ADD COLUMN "poster_key" text;

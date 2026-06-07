@@ -15,6 +15,13 @@
       "when": 1780580374651,
       "tag": "0001_trgm_and_gin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780812489526,
+      "tag": "0002_add_poster_key",
+      "breakpoints": true
     }
   ]
 }
