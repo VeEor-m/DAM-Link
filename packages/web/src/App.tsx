@@ -1,4 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { gsap, useGSAP } from './lib/gsap-setup.js';
+import { createViewModeSwitchTimeline } from './lib/animations/view-mode-switch.js';
 import { AppShell } from './components/layout/AppShell';
 import { Toolbar } from './components/toolbar/Toolbar';
 import { Sidebar } from './components/sidebar/Sidebar';
@@ -117,6 +119,33 @@ export default function App() {
         }
       });
   }, []);
+
+  // displayMode lags state.ui.viewMode. The browser slot renders displayMode,
+  // not viewMode. The view-mode useGSAP below swaps displayMode to viewMode
+  // at the midpoint of the crossfade. On first mount, viewMode === displayMode
+  // (both default to 'grid') so the useGSAP body is a no-op.
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>(state.ui.viewMode);
+  const browserRef = useRef<HTMLDivElement>(null);
+  useGSAP(
+    () => {
+      if (state.ui.viewMode === displayMode) return; // no-op on first mount and on no-op dispatches
+      if (!browserRef.current) return;
+      const target = state.ui.viewMode;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        if (!browserRef.current) return;
+        createViewModeSwitchTimeline(browserRef.current, () => {
+          setDisplayMode(target);
+        }).play(0);
+      });
+      // Reduced-motion branch: swap immediately, no animation.
+      mm.add('(prefers-reduced-motion: reduce)', () => {
+        setDisplayMode(target);
+      });
+      return () => mm.revert();
+    },
+    { scope: browserRef, dependencies: [state.ui.viewMode] },
+  );
 
   // Edge E1: phone sheet persists across selections (content swaps).
   // Edge E2: phone drawer closes on Sidebar selection.
@@ -681,7 +710,7 @@ export default function App() {
           />
         }
         browser={
-          <>
+          <div ref={browserRef} style={{ display: 'contents' }}>
             <BatchActionBar
               count={batchCount}
               allFavorites={batchAllFavorites}
@@ -689,7 +718,7 @@ export default function App() {
               onToggleFavorite={handleBatchToggleFavorite}
               onDelete={handleBatchDelete}
             />
-            {state.ui.viewMode === 'grid' ? (
+            {displayMode === 'grid' ? (
               <AssetGrid
                 assets={visibleAssets}
                 selectedId={state.ui.selectedAssetId}
@@ -716,7 +745,7 @@ export default function App() {
                 }
               />
             )}
-          </>
+          </div>
         }
         detail={
           <DetailPanel
