@@ -169,6 +169,7 @@ describe('selectVisibleAssets', () => {
       sortKey: 'date',
       sortDir: 'desc',
       activeOrgId: null,
+      sidebarCounts: null,
     });
     expect(visible.every((a) => a.type === 'image')).toBe(true);
     expect(visible.every((a) => a.deletedAt === null)).toBe(true);

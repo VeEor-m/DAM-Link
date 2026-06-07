@@ -22,6 +22,7 @@ function makeUI(overrides: Partial<UIState> = {}): UIState {
     sortKey: 'date',
     sortDir: 'desc',
     activeOrgId: null,
+    sidebarCounts: null,
     ...overrides,
   };
 }

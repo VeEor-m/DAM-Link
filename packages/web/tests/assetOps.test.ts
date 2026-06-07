@@ -23,6 +23,7 @@ const baseState: AppState = {
     sortKey: 'date',
     sortDir: 'desc',
     activeOrgId: null,
+    sidebarCounts: null,
   },
 };
 
