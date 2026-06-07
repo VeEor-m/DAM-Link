@@ -6,6 +6,7 @@ import type {
   SortKey,
   ViewMode,
 } from './types';
+import type { SidebarCounts } from '@dam-link/contracts';
 
 export type Action =
   // UI
@@ -56,5 +57,6 @@ interface AppState {
     sortKey: SortKey;
     sortDir: SortDir;
     activeOrgId: string | null;
+    sidebarCounts: SidebarCounts | null;
   };
 }
