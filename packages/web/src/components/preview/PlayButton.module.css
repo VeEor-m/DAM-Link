@@ -1,0 +1,26 @@
+.button {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 150ms ease, background 150ms ease;
+}
+.button:hover { background: rgba(0, 0, 0, 0.75); transform: scale(1.05); }
+.button:focus-visible { outline: 2px solid #fff; outline-offset: 4px; }
+.triangle {
+  width: 0; height: 0;
+  border-left: 22px solid #fff;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  margin-left: 6px; /* visual centering */
+}
+@media (prefers-reduced-motion: reduce) {
+  .button { transition: none; }
+  .button:hover { transform: none; }
+}
