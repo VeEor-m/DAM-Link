@@ -7,7 +7,6 @@ import { useViewport } from '../../hooks/useViewport';
 import { useStore } from '../../hooks/useStore';
 import { gsap, useGSAP } from '../../lib/gsap-setup.js';
 import { createAssetListFade } from '../../lib/animations/asset-list.js';
-import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import styles from './AssetList.module.css';
 
 interface AssetListProps {
@@ -31,13 +30,15 @@ export function AssetList({
   onToggleMultiSelect,
 }: AssetListProps) {
   const listRef = useRef<HTMLDivElement>(null);
-  const isFirstMount = useIsFirstMount();
+  const hasFiredRef = useRef(false);
 
   // Replay whole-list fade on user-initiated `assets` changes (search /
-  // filter / sidebar click). First invocation is gated by useIsFirstMount
-  // — the AppShell mount already animated the initial list, so the first
-  // dep change should be a no-op. Gated by prefers-reduced-motion via
-  // gsap.matchMedia so the no-motion branch is a no-op.
+  // filter / sidebar click). The first time the body runs AND finds rows
+  // is gated out via hasFiredRef — the AppShell mount already animated
+  // the initial list, so that first non-empty body run should be a
+  // no-op. Subsequent `assets` changes replay the fade. Gated by
+  // prefers-reduced-motion via gsap.matchMedia so the no-motion branch
+  // is a no-op.
   useGSAP(
     () => {
       if (!listRef.current) return;
@@ -45,13 +46,21 @@ export function AssetList({
         listRef.current.querySelectorAll<HTMLElement>('[data-anim="row"]'),
       );
       if (rows.length === 0) return;
+      // Skip the first time the body runs with rows — the AppShell
+      // mount already animated the initial list. Subsequent user-
+      // initiated `assets` changes (search/filter/sidebar click)
+      // replay the fade.
+      if (!hasFiredRef.current) {
+        hasFiredRef.current = true;
+        return;
+      }
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
         createAssetListFade(listRef.current!, rows).play(0);
       });
       return () => mm.revert();
     },
-    { scope: listRef, dependencies: [assets, isFirstMount] },
+    { scope: listRef, dependencies: [assets] },
   );
 
   const viewport = useViewport();
