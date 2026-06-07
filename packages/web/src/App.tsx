@@ -28,7 +28,7 @@ import { initialUI } from './state/initialUI';
 import {
   selectVisibleAssets,
   selectActiveFilterCount,
-  selectVisibleAssetIds,
+  selectLightboxVisibleAssetIds,
 } from './state/selectors';
 import { copyToClipboard } from './utils/clipboard';
 import { downloadAsset } from './utils/download';
@@ -205,18 +205,22 @@ export default function App() {
   );
 
   // ── Lightbox wiring ──────────────────────────────────────────────────
-  const visibleIds = useMemo(
-    () => selectVisibleAssetIds(state),
+  // Filtered to image/video only — see selectLightboxVisibleAssetIds.
+  // Without the filter the chevron prev/next chain and the NeighborStrip
+  // would include document/audio assets; navigating to one renders an
+  // empty MediaStage (it has no case for those types).
+  const lightboxVisibleIds = useMemo(
+    () => selectLightboxVisibleAssetIds(state),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.assets, state.ui],
   );
   const visibleNeighborItems = useMemo<NeighborItem[]>(
     () =>
-      visibleIds
+      lightboxVisibleIds
         .map((id) => state.assets.find((a) => a.id === id))
         .filter((a): a is Asset => Boolean(a))
         .map((a) => ({ id: a.id, thumbnailUrl: a._thumbnailUrl ?? null, label: a.name })),
-    [visibleIds, state.assets],
+    [lightboxVisibleIds, state.assets],
   );
 
   const handleCloseLightbox = useCallback(() => {
@@ -906,7 +910,7 @@ export default function App() {
           state.assets.find((a) => a.id === state.ui.lightboxAssetId) ?? null
         }
         neighbors={visibleNeighborItems}
-        visibleIds={visibleIds}
+        visibleIds={lightboxVisibleIds}
         orgId={state.ui.activeOrgId}
         onNavigate={handleLightboxNavigate}
         onClose={handleCloseLightbox}
