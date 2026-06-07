@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Asset, SortDir, SortKey } from '../../state/types';
 import { AssetListRow } from './AssetListRow';
 import { StackedCardList } from './StackedCardList';
 import { EmptyState } from '../common/EmptyState';
 import { useViewport } from '../../hooks/useViewport';
 import { useStore } from '../../hooks/useStore';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import { createAssetListFade } from '../../lib/animations/asset-list.js';
+import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import styles from './AssetList.module.css';
 
 interface AssetListProps {
@@ -27,6 +30,30 @@ export function AssetList({
   multiSelectedIds,
   onToggleMultiSelect,
 }: AssetListProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const isFirstMount = useIsFirstMount();
+
+  // Replay whole-list fade on user-initiated `assets` changes (search /
+  // filter / sidebar click). First invocation is gated by useIsFirstMount
+  // — the AppShell mount already animated the initial list, so the first
+  // dep change should be a no-op. Gated by prefers-reduced-motion via
+  // gsap.matchMedia so the no-motion branch is a no-op.
+  useGSAP(
+    () => {
+      if (!listRef.current) return;
+      const rows = Array.from(
+        listRef.current.querySelectorAll<HTMLElement>('[data-anim="row"]'),
+      );
+      if (rows.length === 0) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        createAssetListFade(listRef.current!, rows).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: listRef, dependencies: [assets, isFirstMount] },
+  );
+
   const viewport = useViewport();
   // Sort lives in global UI state so it persists across view-mode
   // switches and sessions. Header clicks dispatch SET_SORT instead of
@@ -86,7 +113,7 @@ export function AssetList({
   const hasCheckbox = onToggleMultiSelect !== undefined;
 
   return (
-    <div className={styles.list} role="grid">
+    <div ref={listRef} className={styles.list} role="grid">
       <div className={`${styles.header} ${hasCheckbox ? styles.headerHasCheckbox : ''}`} role="row">
         {hasCheckbox && <span></span>}
         <span></span>
