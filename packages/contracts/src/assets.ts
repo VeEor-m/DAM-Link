@@ -36,6 +36,11 @@ export const AssetSchema = z.object({
   // re-fetch when stale. `null` when no thumbnail has been generated yet;
   // field omitted when the asset type doesn't support thumbnails.
   thumbnailUrl: z.string().url().nullable().optional(),
+  // Presigned URL to a video's first-frame poster, attached by the list/detail
+  // responses (server-side enrichment). Same TTL as thumbnailUrl (1h). For
+  // images the poster is the same as the thumbnail. For audio/document
+  // assets this is null. Backfilled via POST /regenerate-poster.
+  posterUrl: z.string().url().nullable().optional(),
   status: AssetStatusSchema,
   visibility: VisibilitySchema,
 });
