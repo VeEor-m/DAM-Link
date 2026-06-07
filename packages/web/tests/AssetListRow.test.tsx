@@ -6,6 +6,7 @@ import type { Asset } from '../src/state/types';
 
 const baseAsset: Asset = {
   id: 'a01',
+  orgId: 'org-1',
   name: 'hero-banner.png',
   type: 'image',
   format: 'PNG',

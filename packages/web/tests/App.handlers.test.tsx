@@ -16,6 +16,7 @@ vi.mock('../src/api/assets.js', () => ({
   restore: vi.fn(),
   permanentDelete: vi.fn(),
   getDownloadUrl: vi.fn(),
+  getPlaybackUrl: vi.fn(),
   emptyTrash: vi.fn(),
 }));
 vi.mock('../src/api/share-links.js', () => ({ createShareLink: vi.fn(), listShareLinks: vi.fn(), revokeShareLink: vi.fn() }));
@@ -32,6 +33,7 @@ import {
   softDelete,
   restore,
   getDownloadUrl,
+  getPlaybackUrl,
   emptyTrash,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
@@ -97,6 +99,10 @@ async function mountAppWithAsset(asset: Asset) {
     favorites: 0,
     trash: 0,
   });
+  // The Lightbox opens on card click (Plan 17). Default playback URL
+  // succeeds so the MediaStage doesn't throw; individual tests that need
+  // a specific behavior override this.
+  vi.mocked(getPlaybackUrl).mockResolvedValue({ downloadUrl: 'https://cdn/full.png' });
 
   const utils = render(
     <StoreProvider>
@@ -110,11 +116,19 @@ async function mountAppWithAsset(asset: Asset) {
   return utils;
 }
 
-/** Click the asset card to open the DetailPanel. */
+/** Click the asset card to open the DetailPanel.
+ *
+ *  Since Plan 17 Task 19, clicking a card also opens the Lightbox (which
+ *  overlays the whole viewport). The DetailPanel handler tests don't care
+ *  about the Lightbox, so we close it via its floating ✕ button before
+ *  returning — otherwise the Lightbox's own "下载" / "收藏" buttons would
+ *  conflict with the DetailPanel's.
+ */
 async function selectAsset(user: ReturnType<typeof userEvent.setup>, name: string) {
   // The card has aria-label "${name}，${size}" so a regex on the name works.
   const card = screen.getByRole('button', { name: new RegExp(name, 'i') });
   await user.click(card);
+  await user.click(screen.getByTestId('lightbox-floating-close'));
 }
 
 describe('App — BatchActionBar handlers', () => {
@@ -221,6 +235,148 @@ describe('App — BatchActionBar handlers', () => {
       expect(ids).toContain('11111111-1111-4111-8111-111111111111');
       expect(ids).toContain('22222222-2222-4222-8222-222222222222');
     });
+  });
+
+  // ── Lightbox open / close / navigate (Task 20) ──────────────────────
+  //
+  // The reducer's OPEN/CLOSE/NAVIGATE cases are unit-tested in
+  // `reducer.lightbox.test.ts` (Task 12). These 3 cases are integration
+  // tests: they prove that App.tsx wires the card click → OPEN_LIGHTBOX,
+  // the Escape key → CLOSE_LIGHTBOX, and a sidebar selection change →
+  // CLOSE_LIGHTBOX. Assertions are on observable UI state (the Lightbox
+  // dialog's presence in the DOM), not on dispatched actions — the file
+  // doesn't have a dispatched-actions tracker.
+
+  it('clicking a card opens the Lightbox dialog', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-open.png' }));
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // The AssetCard has role="button" and aria-label "${name}，${size}"
+    // (AssetCard.tsx:69,75). Task 19 wires its onClick to dispatch
+    // OPEN_LIGHTBOX.
+    const card = screen.getByRole('button', { name: /lightbox-open\.png/i });
+    await user.click(card);
+
+    // Lightbox.tsx renders the dialog with data-testid="lightbox" inside
+    // a portal, so it appears in document.body once the asset is set.
+    expect(await screen.findByTestId('lightbox')).toBeInTheDocument();
+
+    // Clean up — close the lightbox so the test ends in a sane state
+    // (the floating ✕ is the same button selectAsset() uses).
+    await user.click(screen.getByTestId('lightbox-floating-close'));
+  });
+
+  it('pressing Escape while the Lightbox is open closes it', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-esc.png' }));
+
+    // Open the lightbox.
+    const card = screen.getByRole('button', { name: /lightbox-esc\.png/i });
+    await user.click(card);
+    await screen.findByTestId('lightbox');
+
+    // The Lightbox auto-focuses its dialog (tabIndex={-1} + useEffect on
+    // open, Lightbox.tsx:36-48) and attaches a window-level keydown
+    // listener (Lightbox.tsx:51-77). useLightbox's onKeyDown maps Escape
+    // to onClose → dispatch CLOSE_LIGHTBOX (useLightbox.ts:46).
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('lightbox')).toBeNull();
+    });
+
+    // The page didn't navigate — the asset card is still visible. Also
+    // the floating ✕ is gone, which proves the lightbox actually
+    // unmounted (not just re-rendered).
+    expect(screen.getByText('lightbox-esc.png')).toBeInTheDocument();
+    expect(screen.queryByTestId('lightbox-floating-close')).toBeNull();
+  });
+
+  it('changing the sidebar selection while the Lightbox is open closes it', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'lightbox-nav.png' }));
+
+    // Open the lightbox.
+    const card = screen.getByRole('button', { name: /lightbox-nav\.png/i });
+    await user.click(card);
+    await screen.findByTestId('lightbox');
+
+    // Click the 图片 sidebar entry (Sidebar.tsx:104-110 — IconPhoto +
+    // span with text "图片", aria-hidden icon so the accessible name is
+    // exactly "图片"). Its onClick calls onSelect({ kind: 'type', type:
+    // 'image' }), which updates state.ui.selection. The useEffect in
+    // App.tsx:233-238 watches selection/searchQuery/filter and dispatches
+    // CLOSE_LIGHTBOX whenever the visible list changes underneath the
+    // open lightbox.
+    await user.click(screen.getByRole('button', { name: /^图片$/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('lightbox')).toBeNull();
+    });
+  });
+
+  // ── Lightbox is image/video only (audio/document → DetailPanel only)
+  //
+  // The Lightbox can only usefully preview image and video assets; for
+  // audio/document it would show a broken/non-applicable preview. Clicking
+  // those cards should SELECT_ASSET (open the DetailPanel) but NOT open
+  // the Lightbox dialog.
+
+  it('clicking an audio card opens the DetailPanel without opening the Lightbox', async () => {
+    const user = userEvent.setup();
+    const audio = makeApiAsset({
+      id: 'a1',
+      name: 'song.mp3',
+      type: 'audio',
+      format: 'MP3',
+      mimeType: 'audio/mpeg',
+    });
+    await mountAppWithAsset(audio);
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // Click the audio card. The AssetCard has role="button" and
+    // aria-label "${name}，${size}".
+    const card = screen.getByRole('button', { name: /song\.mp3/i });
+    await user.click(card);
+
+    // Lightbox MUST NOT open for audio. Wait a tick to be sure.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // DetailPanel IS showing the asset (rename button shows the name and
+    // has title="点击重命名" when not in trash).
+    expect(screen.getByTitle('点击重命名')).toHaveTextContent('song.mp3');
+  });
+
+  it('clicking a document card opens the DetailPanel without opening the Lightbox', async () => {
+    const user = userEvent.setup();
+    const doc = makeApiAsset({
+      id: 'd1',
+      name: 'spec.pdf',
+      type: 'document',
+      format: 'PDF',
+      mimeType: 'application/pdf',
+    });
+    await mountAppWithAsset(doc);
+
+    // No lightbox in the DOM until a card is clicked.
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // Click the document card.
+    const card = screen.getByRole('button', { name: /spec\.pdf/i });
+    await user.click(card);
+
+    // Lightbox MUST NOT open for documents.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // DetailPanel IS showing the asset.
+    expect(screen.getByTitle('点击重命名')).toHaveTextContent('spec.pdf');
   });
 });
 

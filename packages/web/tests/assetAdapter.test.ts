@@ -26,10 +26,11 @@ const baseApiAsset: ApiAsset = {
 };
 
 describe('apiAssetToLocal', () => {
-  it('maps the 13 UI-shown fields from API shape to UI shape', () => {
+  it('maps the 14 UI-shown fields from API shape to UI shape', () => {
     const local = apiAssetToLocal(baseApiAsset);
     expect(local).toEqual({
       id: 'a1',
+      orgId: 'org-1',
       name: 'cat.png',
       type: 'image',
       format: 'PNG',
@@ -58,9 +59,8 @@ describe('apiAssetToLocal', () => {
     expect(local._thumbnailUrl).toBeNull();
   });
 
-  it('omits the 4 API-only fields (orgId, mimeType, objectKey, thumbnailKey, status, visibility, previewDataUrl) from the local shape', () => {
+  it('omits the API-only fields (mimeType, objectKey, thumbnailKey, status, visibility, previewDataUrl) from the local shape', () => {
     const local = apiAssetToLocal(baseApiAsset) as unknown as Record<string, unknown>;
-    expect('orgId' in local).toBe(false);
     expect('mimeType' in local).toBe(false);
     expect('objectKey' in local).toBe(false);
     expect('thumbnailKey' in local).toBe(false);

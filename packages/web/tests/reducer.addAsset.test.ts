@@ -5,6 +5,7 @@ import type { UIState } from '../src/state/types';
 
 const baseAsset: Asset = {
   id: 'a1',
+  orgId: 'org-1',
   name: 'a.png',
   type: 'image',
   format: 'PNG',

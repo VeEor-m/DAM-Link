@@ -1,0 +1,53 @@
+.stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+.thumb, .thumbFading, .poster {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: blur(8px) brightness(0.6);
+  transition: opacity 200ms ease;
+}
+.thumbFading { opacity: 0; }
+.media {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  z-index: 1;
+}
+.mediaHidden { display: none; }
+.audioCover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+}
+.audioIcon {
+  font-size: 120px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.audioLabel {
+  font-size: 16px;
+  max-width: 320px;
+  word-break: break-all;
+}
+.audioControls {
+  width: 320px;
+  max-width: 90%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .thumb, .thumbFading, .poster { transition: none; }
+}

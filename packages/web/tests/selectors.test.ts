@@ -170,6 +170,7 @@ describe('selectVisibleAssets', () => {
       sortDir: 'desc',
       activeOrgId: null,
       sidebarCounts: null,
+      lightboxAssetId: null,
     });
     expect(visible.every((a) => a.type === 'image')).toBe(true);
     expect(visible.every((a) => a.deletedAt === null)).toBe(true);
