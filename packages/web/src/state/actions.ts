@@ -6,6 +6,7 @@ import type {
   SortKey,
   ViewMode,
 } from './types';
+import type { SidebarCounts } from '@dam-link/contracts';
 
 export type Action =
   // UI
@@ -30,15 +31,11 @@ export type Action =
   | { type: 'RENAME_ASSET'; id: string; name: string }
   | { type: 'ADD_TAG'; id: string; tag: string }
   | { type: 'REMOVE_TAG'; id: string; tag: string }
-  | { type: 'DELETE_ASSET'; id: string; deletedAt: string }
-  | { type: 'RESTORE_ASSET'; id: string }
-  | { type: 'PERMANENT_DELETE'; id: string }
-  | { type: 'EMPTY_TRASH' }
   // Batch asset mutations
-  | { type: 'BATCH_DELETE'; ids: string[]; when: Date }
   | { type: 'BATCH_TOGGLE_FAVORITE'; ids: string[] }
   | { type: 'BATCH_ADD_TAG'; ids: string[]; tag: string }
-  | { type: 'BATCH_REMOVE_TAG'; ids: string[]; tag: string };
+  | { type: 'BATCH_REMOVE_TAG'; ids: string[]; tag: string }
+  | { type: 'SET_SIDEBAR_COUNTS'; counts: SidebarCounts };
 
 // `AppState` is the local shape — defined in store.tsx; we use a structural
 // type to avoid a circular import. Keep this in sync with the real
@@ -56,5 +53,6 @@ interface AppState {
     sortKey: SortKey;
     sortDir: SortDir;
     activeOrgId: string | null;
+    sidebarCounts: SidebarCounts | null;
   };
 }

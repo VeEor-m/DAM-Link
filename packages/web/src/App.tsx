@@ -26,7 +26,6 @@ import { MOCK_ASSETS } from './state/mockData';
 import { initialUI } from './state/initialUI';
 import {
   selectVisibleAssets,
-  selectSidebarCounts,
   selectActiveFilterCount,
 } from './state/selectors';
 import { copyToClipboard } from './utils/clipboard';
@@ -38,12 +37,54 @@ import {
   softDelete as apiSoftDelete,
   restore as apiRestore,
   permanentDelete as apiPermanentDelete,
+  emptyTrash as apiEmptyTrash,
+  sidebarCounts,
 } from './api/assets.js';
 import { ApiError } from './api/client.js';
 import { createShareLink as apiCreateShareLink } from './api/share-links.js';
 import type { KeymapEntry } from './state/keymap';
 import type { Asset, SidebarSelection } from './state/types';
+import type { SidebarCounts } from '@dam-link/contracts';
 import styles from './App.module.css';
+
+/** Empty placeholder for `state.ui.sidebarCounts` while the first fetch is
+ *  in flight. The shape matches `SidebarCounts` from `@dam-link/contracts`
+ *  (the `GET /sidebar-counts` response). */
+const EMPTY_COUNTS: SidebarCounts = {
+  byType: { image: 0, video: 0, document: 0, audio: 0 },
+  byTag: [],
+  favorites: 0,
+  trash: 0,
+};
+
+/** Adapts the server's `SidebarCounts` (array form for `byTag`, nested
+ *  `byType`) to the flat + record shape that `<Sidebar>` consumes. The
+ *  unused fields (`all`, flat `image`/`video`/`document`/`audio`) are
+ *  populated so the prop type keeps compiling without an out-of-scope
+ *  Sidebar refactor; they are not rendered. */
+function toSidebarCountsProps(c: SidebarCounts): {
+  all: number;
+  image: number;
+  video: number;
+  document: number;
+  audio: number;
+  favorites: number;
+  trash: number;
+  byTag: Record<string, number>;
+} {
+  const byTag: Record<string, number> = {};
+  for (const { tag, count } of c.byTag) byTag[tag] = count;
+  return {
+    all: 0,
+    image: c.byType.image,
+    video: c.byType.video,
+    document: c.byType.document,
+    audio: c.byType.audio,
+    favorites: c.favorites,
+    trash: c.trash,
+    byTag,
+  };
+}
 
 export default function App() {
   const { state, dispatch } = useStore();
@@ -125,8 +166,31 @@ export default function App() {
     [state.assets, state.ui, debouncedQuery],
   );
 
-  const counts = useMemo(() => selectSidebarCounts(state.assets), [state.assets]);
+  // Sidebar counts come from the server (authoritative across reloads and
+  // for orgs that have more than `limit: 200` assets). Falls back to an
+  // empty shell while the first fetch is in flight.
+  const counts = state.ui.sidebarCounts ?? EMPTY_COUNTS;
   const filterCount = useMemo(() => selectActiveFilterCount(state.ui.filter), [state.ui.filter]);
+
+  // Debounced refetch of server sidebar counts whenever the in-memory
+  // assets change. 500ms is short enough to feel live, long enough to
+  // coalesce bursts (e.g. batch delete of 50 items).
+  useEffect(() => {
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      sidebarCounts(orgId)
+        .then((c) => {
+          if (!cancelled) dispatch({ type: 'SET_SIDEBAR_COUNTS', counts: c });
+        })
+        .catch(() => { /* silent — counts will refresh on next action */ });
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [state.assets, state.ui.activeOrgId, dispatch]);
 
   // Memoize so the keymap below doesn't re-create on every state change.
   // Without this, `selected` would be a new reference on every render and
@@ -265,6 +329,8 @@ export default function App() {
   }
 
   async function handleEmptyTrash() {
+    const orgId = state.ui.activeOrgId;
+    if (!orgId) return;
     const ok = await confirm({
       title: '清空回收站',
       body: '确定要清空回收站吗？此操作不可撤销。',
@@ -273,9 +339,19 @@ export default function App() {
       danger: true,
     });
     if (!ok) return;
-    const { nextState } = emptyTrash({ assets: state.assets, ui: state.ui });
-    dispatch({ type: 'HYDRATE_STATE', state: { assets: nextState.assets, ui: nextState.ui } });
-    toast.showToast({ message: '回收站已清空', variant: 'success' });
+    const before = state.assets;
+    const { nextState } = emptyTrash({ assets: before, ui: state.ui });
+    dispatch({
+      type: 'HYDRATE_STATE',
+      state: { assets: nextState.assets, ui: { ...nextState.ui, selectedAssetId: null } },
+    });
+    try {
+      await apiEmptyTrash(orgId);
+      toast.showToast({ message: '回收站已清空', variant: 'success' });
+    } catch {
+      dispatch({ type: 'HYDRATE_STATE', state: { assets: before, ui: state.ui } });
+      toast.showToast({ message: '清空回收站失败', variant: 'error' });
+    }
   }
 
   // ── Batch (multi-select) handlers ───────────────────────────────────
@@ -601,7 +677,7 @@ export default function App() {
           <Sidebar
             selection={state.ui.selection}
             onSelect={onSelectSelection}
-            counts={counts}
+            counts={toSidebarCountsProps(counts)}
           />
         }
         browser={
@@ -669,7 +745,7 @@ export default function App() {
         <Sidebar
           selection={state.ui.selection}
           onSelect={onSelectSelection}
-          counts={counts}
+          counts={toSidebarCountsProps(counts)}
         />
       </Drawer>
 

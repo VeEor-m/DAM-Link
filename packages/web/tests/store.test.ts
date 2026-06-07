@@ -22,6 +22,7 @@ function makeUI(overrides: Partial<UIState> = {}): UIState {
     sortKey: 'date',
     sortDir: 'desc',
     activeOrgId: null,
+    sidebarCounts: null,
     ...overrides,
   };
 }
@@ -95,32 +96,5 @@ describe('reducer: SET_SORT', () => {
     });
     expect(s1.ui.searchQuery).toBe('foo');
     expect(s1.ui.viewMode).toBe('list');
-  });
-});
-
-describe('reducer: BATCH_DELETE', () => {
-  it('sets deletedAt on every id in the list', () => {
-    const s1 = reducer(makeState(), { type: 'SELECT_ALL_VISIBLE', ids: ['a01', 'a02'] });
-    const when = new Date('2026-06-05T10:00:00Z');
-    const s2 = reducer(s1, {
-      type: 'BATCH_DELETE',
-      ids: ['a01', 'a02'],
-      when,
-    });
-    expect(s2.assets.find((a) => a.id === 'a01')?.deletedAt).toBe('2026-06-05T10:00:00Z');
-    expect(s2.assets.find((a) => a.id === 'a02')?.deletedAt).toBe('2026-06-05T10:00:00Z');
-    // other assets untouched
-    expect(s2.assets.find((a) => a.id === 'a03')?.deletedAt).toBeNull();
-  });
-
-  it('does not touch assets outside the id list', () => {
-    const before = MOCK_ASSETS.find((a) => a.id === 'a01')!;
-    const s1 = reducer(makeState(), { type: 'SELECT_ALL_VISIBLE', ids: ['a02'] });
-    const s2 = reducer(s1, {
-      type: 'BATCH_DELETE',
-      ids: ['a02'],
-      when: new Date('2026-06-05T10:00:00Z'),
-    });
-    expect(s2.assets.find((a) => a.id === 'a01')).toEqual(before);
   });
 });

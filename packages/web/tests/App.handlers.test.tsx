@@ -32,6 +32,7 @@ import {
   softDelete,
   restore,
   getDownloadUrl,
+  emptyTrash,
 } from '../src/api/assets.js';
 import { ApiError } from '../src/api/client.js';
 import { createShareLink } from '../src/api/share-links.js';
@@ -438,6 +439,81 @@ describe('App — copy link handler', () => {
     await user.click(screen.getByRole('button', { name: /复制链接/ }));
     await waitFor(() => {
       expect(screen.getByText('复制失败')).toBeInTheDocument();
+    });
+  });
+});
+
+describe('App — handleEmptyTrash', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('calls apiEmptyTrash after the user confirms', async () => {
+    const user = userEvent.setup();
+    const asset = makeApiAsset({ id: 'a1', name: 'old.png' });
+    await mountAppWithAsset(asset);
+
+    // Click the sidebar 回收站 entry (rendered as "回收站 N" where N is the
+    // trash count). The empty-trash button only appears once selection is
+    // smart:trash.
+    await user.click(screen.getByRole('button', { name: /^回收站 \d+$/ }));
+    // Trigger the action: this opens the confirm dialog.
+    await user.click(screen.getByRole('button', { name: /^清空回收站$/ }));
+    // Confirm dialog: click the confirm button (label is the confirmLabel
+    // from handleEmptyTrash, "清空").
+    await user.click(screen.getByRole('button', { name: /^清空$/ }));
+
+    await waitFor(() => {
+      expect(vi.mocked(emptyTrash)).toHaveBeenCalledWith('org-1');
+    });
+  });
+
+  it('does NOT call apiEmptyTrash when the user cancels', async () => {
+    const user = userEvent.setup();
+    const asset = makeApiAsset({ id: 'a1', name: 'old.png' });
+    await mountAppWithAsset(asset);
+
+    await user.click(screen.getByRole('button', { name: /^回收站 \d+$/ }));
+    await user.click(screen.getByRole('button', { name: /^清空回收站$/ }));
+    await user.click(screen.getByRole('button', { name: /^取消$/ }));
+
+    // Wait a tick to make sure no API call sneaks in.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(vi.mocked(emptyTrash)).not.toHaveBeenCalled();
+  });
+});
+
+describe('App — sidebar counts from state.ui.sidebarCounts', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('displays the server-provided counts in the sidebar', async () => {
+    const asset = makeApiAsset({ id: 'a1', name: 'a.png' });
+    // Override the default zero counts.
+    vi.mocked(me).mockResolvedValue({
+      user: { id: 'u1', email: 'a@b.c', displayName: 'A', createdAt: '2026-06-06T00:00:00.000Z' },
+      orgs: [],
+    });
+    vi.mocked(listMyOrgs).mockResolvedValue([
+      { org: { id: 'org-1', name: 'O', slug: 'o', createdAt: '2026-06-06T00:00:00.000Z' }, role: 'owner' },
+    ]);
+    vi.mocked(listAssets).mockResolvedValue({ items: [asset], nextCursor: null });
+    vi.mocked(sidebarCounts).mockResolvedValue({
+      byType: { image: 7, video: 2, document: 0, audio: 0 },
+      byTag: [],
+      favorites: 1,
+      trash: 5,
+    });
+
+    render(
+      <StoreProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    await screen.findByText('a.png');
+
+    // 回收站 sidebar count should be 5 (from sidebarCounts mock).
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument();
     });
   });
 });

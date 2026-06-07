@@ -1,5 +1,7 @@
 // Domain types for the DAM browser.
 
+import type { SidebarCounts } from '@dam-link/contracts';
+
 export type AssetType = 'image' | 'video' | 'document' | 'audio';
 
 export interface Asset {
@@ -75,6 +77,11 @@ export interface UIState {
   /** Active org id. Loaded by `loadState()` from the first org the user
    *  belongs to. `null` when the user has no orgs yet. */
   activeOrgId: string | null;
+  /** Server-side counts for the sidebar (authoritative, refetched on a
+   *  debounce). `null` until the first `loadState()` completes. The
+   *  shape matches the `GET /sidebar-counts` response (`SidebarCounts`
+   *  in `@dam-link/contracts`). */
+  sidebarCounts: SidebarCounts | null;
 }
 
 export interface AppState {

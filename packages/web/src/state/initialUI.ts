@@ -23,4 +23,5 @@ export const initialUI: UIState = {
   sortKey: 'date',
   sortDir: 'desc',
   activeOrgId: null,
+  sidebarCounts: null,
 };
