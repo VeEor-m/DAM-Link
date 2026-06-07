@@ -1,4 +1,7 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { gsap, useGSAP } from '../../lib/gsap-setup.js';
+import { createAppShellMountEntrance } from '../../lib/animations/app-shell.js';
+import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import styles from './AppShell.module.css';
 
 interface AppShellProps {
@@ -29,8 +32,28 @@ interface AppShellProps {
  * the slots are visible and the overlays are hidden.
  */
 export function AppShell({ toolbar, sidebar, browser, detail }: AppShellProps) {
+  const shellRef = useRef<HTMLDivElement>(null);
+  const isFirstMount = useIsFirstMount();
+
+  // One-time mount entrance. Gated by useIsFirstMount so re-renders don't
+  // re-fire. Gated by prefers-reduced-motion via gsap.matchMedia so the
+  // no-motion branch is a no-op.
+  useGSAP(
+    () => {
+      if (!isFirstMount) return;
+      if (!shellRef.current) return;
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        if (!shellRef.current) return;
+        createAppShellMountEntrance(shellRef.current).play(0);
+      });
+      return () => mm.revert();
+    },
+    { scope: shellRef, dependencies: [isFirstMount] },
+  );
+
   return (
-    <div className={`app-root ${styles.shell}`}>
+    <div ref={shellRef} className={`app-root ${styles.shell}`}>
       <h1 className="sr-only">资产浏览器</h1>
       <div className={styles.toolbar}>{toolbar}</div>
       <div className={styles.body}>
