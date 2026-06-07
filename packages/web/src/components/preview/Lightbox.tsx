@@ -9,6 +9,15 @@ import styles from './Lightbox.module.css';
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Module-level noop for the MediaStage `onError` prop. We can't use an
+// inline arrow `() => {}` here because Lightbox re-renders every ~2s when
+// the idle-timer flips isIdle (false→true) — a new inline reference would
+// appear in MediaStageInner's useEffect deps and re-fire the effect,
+// re-fetch the playback URL, change the <video src>, and restart video
+// playback from byte 0 every ~2s. A module constant is the most stable
+// possible reference (allocated once, identity never changes).
+const noop = (): void => {};
+
 export interface LightboxProps {
   asset: Asset | null;
   neighbors: NeighborItem[];
@@ -151,7 +160,7 @@ export function Lightbox(props: LightboxProps) {
             orgId={orgId}
             asset={asset}
             posterUrl={asset._thumbnailUrl ?? null}
-            onError={() => { /* error UI is rendered inside MediaStage */ }}
+            onError={noop}
           />
         ) : null}
         <div className={chevronClass}>
