@@ -2,6 +2,7 @@ import { me } from '../api/auth.js';
 import { listMyOrgs } from '../api/orgs.js';
 import { listAssets, sidebarCounts } from '../api/assets.js';
 import type { AppState, UIState } from './types.js';
+import { apiAssetToLocal } from './assetAdapter.js';
 
 /**
  * Hydrate AppState from the API. Returns null if the user is not logged in.
@@ -20,26 +21,7 @@ export async function loadState(): Promise<AppState | null> {
     const { items } = await listAssets(firstOrg.org.id, { limit: 200, sort: 'uploadedAt:desc', dateBucket: 'all' });
     void (await sidebarCounts(firstOrg.org.id)); // warm the cache; the UI re-fetches on demand
     return {
-      assets: items.map((a) => ({
-        id: a.id,
-        name: a.name,
-        type: a.type,
-        format: a.format,
-        size: a.size,
-        uploadedAt: a.uploadedAt,
-        uploadedBy: a.uploadedBy,
-        tags: a.tags,
-        favorite: a.favorite,
-        deletedAt: a.deletedAt,
-        width: a.width ?? undefined,
-        height: a.height ?? undefined,
-        duration: a.duration ?? undefined,
-        // Presigned URL from the API list response. Signature expires (default
-        // 1h), so the UI must re-fetch via listAssets when it's stale. The
-        // `previewDataUrl` legacy field stays undefined — canvas thumbnails
-        // are not generated in the API-backed store.
-        _thumbnailUrl: a.thumbnailUrl ?? null,
-      })),
+      assets: items.map(apiAssetToLocal),
       ui: { ...defaultUI(), activeOrgId: firstOrg.org.id },
     };
   } catch {

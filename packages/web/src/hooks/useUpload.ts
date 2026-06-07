@@ -12,7 +12,19 @@ export interface UploadItem {
   meta?: { width?: number; height?: number; duration?: number };
 }
 
-export function useUpload(orgId: string) {
+export interface UseUploadOptions {
+  /**
+   * Called with the server-side asset id when an upload + finalize succeeds.
+   * The hook does NOT throw if the callback throws — failures are swallowed
+   * (the upload itself has already succeeded on the server). The caller is
+   * expected to handle the asset-id (e.g. fetch full Asset via getAsset and
+   * dispatch ADD_ASSET).
+   */
+  onUploaded?: (serverId: string) => void;
+}
+
+export function useUpload(orgId: string, options: UseUploadOptions = {}) {
+  const { onUploaded } = options;
   const [items, setItems] = useState<UploadItem[]>([]);
 
   const updateItem = (id: string, patch: Partial<UploadItem>) =>
@@ -25,7 +37,15 @@ export function useUpload(orgId: string) {
           filename: item.file.name,
           mimeType: item.file.type || 'application/octet-stream',
           size: item.file.size,
-          type: item.meta?.duration ? 'video' : (item.file.type.startsWith('image/') ? 'image' : (item.file.type.startsWith('video/') ? 'video' : (item.file.type.startsWith('audio/') ? 'audio' : 'document'))),
+          type: item.meta?.duration
+            ? 'video'
+            : item.file.type.startsWith('image/')
+              ? 'image'
+              : item.file.type.startsWith('video/')
+                ? 'video'
+                : item.file.type.startsWith('audio/')
+                  ? 'audio'
+                  : 'document',
           format: (item.file.name.split('.').pop() ?? 'bin').toUpperCase(),
         });
         updateItem(item.id, { status: 'uploading', serverId: init.assetId });
@@ -33,12 +53,24 @@ export function useUpload(orgId: string) {
         updateItem(item.id, { status: 'finalizing' });
         await finalizeUpload(orgId, init.assetId, item.meta ?? {});
         updateItem(item.id, { status: 'done' });
+        // Fire callback after the local state is updated so consumers that
+        // re-render immediately see the 'done' row.
+        try {
+          onUploaded?.(init.assetId);
+        } catch {
+          // swallow — see UseUploadOptions.onUploaded doc
+        }
       } catch (err) {
-        const message = err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Unknown error';
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Unknown error';
         updateItem(item.id, { status: 'error', error: message });
       }
     },
-    [orgId],
+    [orgId, onUploaded],
   );
 
   const uploadMany = useCallback(
