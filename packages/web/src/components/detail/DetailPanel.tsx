@@ -18,6 +18,7 @@ import {
 } from '../../utils/format';
 import { gsap, useGSAP } from '../../lib/gsap-setup.js';
 import { createSideDetailPanelTimeline } from '../../lib/animations/detail-panel.js';
+import { useIsFirstMount } from '../../hooks/useIsFirstMount';
 import { TagEditor } from './TagEditor';
 import styles from './DetailPanel.module.css';
 
@@ -70,20 +71,39 @@ export function DetailPanel({
 
   const prevAssetIdRef = useRef<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  // Retains the last mounted panel element so the 'close' animation can
+  // still target it on the dep change that unmounts it (set → null).
+  // The JSX ref callback only updates this on mount, not on unmount.
+  const lastPanelElRef = useRef<HTMLElement | null>(null);
+  const setPanelRef = (el: HTMLDivElement | null) => {
+    panelRef.current = el;
+    if (el) lastPanelElRef.current = el;
+  };
+  const isFirst = useIsFirstMount();
 
   useGSAP(
     () => {
-      if (!panelRef.current) return;
+      if (isFirst) {
+        // Seed the ref so the next dep change can compare against the
+        // current asset. No animation on the very first body run.
+        prevAssetIdRef.current = asset?.id ?? null;
+        return;
+      }
       const prev = prevAssetIdRef.current;
       const curr = asset?.id ?? null;
       let direction: 'open' | 'close' | null = null;
       if (prev === null && curr !== null) direction = 'open';
       else if (prev !== null && curr === null) direction = 'close';
       prevAssetIdRef.current = curr;
-      if (direction === null) return; // no-op on first mount and on asset swap
+      if (direction === null) return; // no-op on asset swap (setA → setB)
+      // For 'open' the freshly-mounted element is on `panelRef.current`.
+      // For 'close' the element has already unmounted, so we use the
+      // last-known element captured in `lastPanelElRef.current`.
+      const el = panelRef.current ?? lastPanelElRef.current;
+      if (!el) return;
       const mm = gsap.matchMedia();
       mm.add('(prefers-reduced-motion: no-preference)', () => {
-        createSideDetailPanelTimeline(panelRef.current!, direction!).play(0);
+        createSideDetailPanelTimeline(el, direction!).play(0);
       });
       return () => mm.revert();
     },
@@ -117,7 +137,7 @@ export function DetailPanel({
 
   return (
     <div
-      ref={panelRef}
+      ref={setPanelRef}
       className={styles.detail}
       data-variant={variant}
       data-anim="detail-panel"
