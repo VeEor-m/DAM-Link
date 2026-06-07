@@ -20,6 +20,7 @@ import {
 import { finalizeUpload } from '../../services/uploads.service.js';
 import { requireUser } from '../../plugins/auth.js';
 import { requireRole } from '../../plugins/org-context.js';
+import { postersRoutes } from './posters.routes.js';
 
 // JSON-schema response objects (Zod fails on Fastify response schema serialisation).
 // See memory/gotchas.md.
@@ -386,4 +387,7 @@ export async function registerAssetRoutes(app: App): Promise<void> {
       return { data: { deletedCount } };
     },
   );
+
+  // POST /api/v1/orgs/:orgId/assets/:id/regenerate-poster — Editor+ (Plan 17)
+  await postersRoutes(app);
 }

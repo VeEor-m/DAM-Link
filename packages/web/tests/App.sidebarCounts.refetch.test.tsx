@@ -14,6 +14,7 @@ vi.mock('../src/api/assets.js', () => ({
   restore: vi.fn(),
   permanentDelete: vi.fn(),
   getDownloadUrl: vi.fn(),
+  getPlaybackUrl: vi.fn(),
   emptyTrash: vi.fn(),
 }));
 vi.mock('../src/api/share-links.js', () => ({

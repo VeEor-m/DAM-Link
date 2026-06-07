@@ -17,6 +17,7 @@ import type { Asset as LocalAsset } from './types.js';
 export function apiAssetToLocal(a: ApiAsset): LocalAsset {
   return {
     id: a.id,
+    orgId: a.orgId,
     name: a.name,
     type: a.type,
     format: a.format,

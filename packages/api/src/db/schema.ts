@@ -135,6 +135,7 @@ export const assets = pgTable(
 
     objectKey: text('object_key').notNull(),
     thumbnailKey: text('thumbnail_key'),
+    posterKey: text('poster_key'),
     status: assetStatusEnum('status').notNull().default('pending'),
     visibility: visibilityEnum('visibility').notNull().default('org'),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),

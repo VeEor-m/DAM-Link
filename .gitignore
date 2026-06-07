@@ -31,3 +31,4 @@ packages/api/drizzle/meta/_journal.json.bak
 
 # prod-simulation secrets (used by docker-compose.prod.yml)
 .env.prod-local
+tmp/

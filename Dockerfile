@@ -2,7 +2,7 @@
 
 # --- Base (shared by both stages) ------------------------------------------
 FROM node:22-alpine AS base
-RUN apk add --no-cache tini wget \
+RUN apk add --no-cache tini wget ffmpeg \
     && corepack enable \
     && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app

@@ -35,8 +35,35 @@ async function withThumbnailUrl<T extends { thumbnailKey?: string | null }>(
   return { ...a, thumbnailUrl: url };
 }
 
-/** Asset with a presigned thumbnail URL. Returned by all read paths. */
-export type AssetWithThumbnail = Awaited<ReturnType<typeof withThumbnailUrl>>;
+/**
+ * Adds a presigned poster URL to an asset.
+ * - Videos with a posterKey: presign the poster JPEG
+ * - Images: re-use the thumbnail URL (good enough as a "loading state" image
+ *   for the lightbox; the full image loads from the presigned original)
+ * - Otherwise: null
+ */
+async function withPosterUrl<
+  T extends {
+    posterKey?: string | null;
+    thumbnailKey?: string | null;
+    thumbnailUrl?: string | null;
+    type: string;
+  },
+>(a: T): Promise<T & { posterUrl: string | null }> {
+  if (a.posterKey) {
+    const url = await presignGet(a.posterKey, 3600);
+    return { ...a, posterUrl: url };
+  }
+  if (a.type === 'image' && a.thumbnailKey) {
+    return { ...a, posterUrl: a.thumbnailUrl ?? null };
+  }
+  return { ...a, posterUrl: null };
+}
+
+/** Asset with presigned thumbnail + poster URLs. Returned by all read paths. */
+export type AssetWithThumbnail = Awaited<ReturnType<typeof withThumbnailUrl>> & {
+  posterUrl: string | null;
+};
 
 const MAX_PAGE_SIZE = 200;
 
@@ -61,7 +88,8 @@ export async function listAssetsForOrg(
     cursor: query.cursor ? decodeCursor(query.cursor) : null,
   };
   const rows = await listAssets(args);
-  const items = await Promise.all(rows.map(withThumbnailUrl));
+  const withThumb = await Promise.all(rows.map(withThumbnailUrl));
+  const items = await Promise.all(withThumb.map(withPosterUrl));
   const last = rows[rows.length - 1];
   const nextCursor =
     rows.length === args.limit && last ? encodeCursor(last) : null;
@@ -71,10 +99,10 @@ export async function listAssetsForOrg(
 export async function getAsset(
   orgId: string,
   id: string,
-): Promise<Asset & { thumbnailUrl: string | null }> {
+): Promise<Asset & { thumbnailUrl: string | null; posterUrl: string | null }> {
   const a = await findAssetById(orgId, id);
   if (!a) throw new AppError(404, 'ASSET_NOT_FOUND', 'Asset not found');
-  return withThumbnailUrl(a);
+  return withPosterUrl(await withThumbnailUrl(a));
 }
 
 export async function createDraftAsset(

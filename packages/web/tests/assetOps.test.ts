@@ -24,6 +24,7 @@ const baseState: AppState = {
     sortDir: 'desc',
     activeOrgId: null,
     sidebarCounts: null,
+    lightboxAssetId: null,
   },
 };
 

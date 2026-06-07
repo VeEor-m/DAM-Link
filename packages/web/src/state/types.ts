@@ -6,6 +6,7 @@ export type AssetType = 'image' | 'video' | 'document' | 'audio';
 
 export interface Asset {
   id: string;
+  orgId: string;
   name: string;
   type: AssetType;
   format: string; // uppercase extension: PNG, JPG, MP4, PDF...
@@ -82,6 +83,10 @@ export interface UIState {
    *  shape matches the `GET /sidebar-counts` response (`SidebarCounts`
    *  in `@dam-link/contracts`). */
   sidebarCounts: SidebarCounts | null;
+  /** Asset id currently open in the full-screen lightbox. `null` when the
+   *  lightbox is closed. Decoupled from `selectedAssetId` so closing the
+   *  lightbox doesn't deselect the asset in the DetailPanel. */
+  lightboxAssetId: string | null;
 }
 
 export interface AppState {
