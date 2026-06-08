@@ -15,6 +15,12 @@ interface AssetListProps {
   onSelect: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onKebab: (asset: Asset, anchor: HTMLElement) => void;
+  /**
+   * Optional double-click handler forwarded to each AssetListRow.
+   * Image/video callers use this to open the Lightbox preview.
+   * Omitting it preserves the pre-Plan-21 behavior.
+   */
+  onOpen?: (id: string) => void;
   /** Multi-select: ids currently checked. */
   multiSelectedIds?: string[];
   onToggleMultiSelect?: (id: string) => void;
@@ -24,6 +30,7 @@ export function AssetList({
   assets,
   selectedId,
   onSelect,
+  onOpen,
   onToggleFavorite,
   onKebab,
   multiSelectedIds,
@@ -110,6 +117,7 @@ export function AssetList({
         assets={sorted}
         selectedId={selectedId}
         onSelect={onSelect}
+        onOpen={onOpen}
         onToggleFavorite={onToggleFavorite}
         onKebab={onKebab}
         multiSelectedIds={multiSelectedIds}
@@ -142,6 +150,7 @@ export function AssetList({
           asset={a}
           selected={selectedId === a.id}
           onClick={() => onSelect(a.id)}
+          onDoubleClick={onOpen ? () => onOpen(a.id) : undefined}
           onToggleFavorite={() => onToggleFavorite(a.id)}
           onKebab={(e) => onKebab(a, e.currentTarget as HTMLElement)}
           multiSelected={idSet?.has(a.id) ?? false}
