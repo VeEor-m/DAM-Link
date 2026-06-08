@@ -120,3 +120,47 @@ describe('AssetList fade replay (T17)', () => {
     expect(createAssetListFade).toHaveBeenCalledTimes(1);
   });
 });
+
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+const forwardRowAsset: Asset = {
+  ...A,
+  id: 'r01',
+  name: 'forward-row.png',
+};
+
+describe('AssetList onOpen forwarding (P21)', () => {
+  it('passes onOpen down to each AssetListRow; mouse dblclick triggers it with the asset id', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(
+      <AssetList
+        assets={[forwardRowAsset]}
+        selectedId={null}
+        onSelect={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onKebab={vi.fn()}
+        onOpen={onOpen}
+      />,
+    );
+    const select = screen.getByRole('button', { name: /选择 forward-row\.png/ });
+    await user.dblClick(select);
+    expect(onOpen).toHaveBeenCalledWith('r01');
+  });
+
+  it('omitting onOpen does not throw on dblclick (backward compat)', async () => {
+    const user = userEvent.setup();
+    render(
+      <AssetList
+        assets={[forwardRowAsset]}
+        selectedId={null}
+        onSelect={vi.fn()}
+        onToggleFavorite={vi.fn()}
+        onKebab={vi.fn()}
+      />,
+    );
+    const select = screen.getByRole('button', { name: /选择 forward-row\.png/ });
+    await expect(user.dblClick(select)).resolves.not.toThrow();
+  });
+});

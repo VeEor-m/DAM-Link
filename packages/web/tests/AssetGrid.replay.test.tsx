@@ -111,3 +111,45 @@ describe('AssetGrid card stagger replay (T16)', () => {
     );
   });
 });
+
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+const forwardAsset: Asset = {
+  ...A,
+  id: 'f01',
+  name: 'forward.png',
+};
+
+describe('AssetGrid onOpen forwarding (P21)', () => {
+  it('passes onOpen down to each AssetCard; mouse dblclick triggers it with the asset id', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    render(
+      <AssetGrid
+        assets={[forwardAsset]}
+        selectedId={null}
+        onSelect={vi.fn()}
+        showFavorites={false}
+        onOpen={onOpen}
+      />,
+    );
+    const card = screen.getByRole('button', { name: /forward\.png/ });
+    await user.dblClick(card);
+    expect(onOpen).toHaveBeenCalledWith('f01');
+  });
+
+  it('omitting onOpen does not throw on dblclick (backward compat for callers without it)', async () => {
+    const user = userEvent.setup();
+    render(
+      <AssetGrid
+        assets={[forwardAsset]}
+        selectedId={null}
+        onSelect={vi.fn()}
+        showFavorites={false}
+      />,
+    );
+    const card = screen.getByRole('button', { name: /forward\.png/ });
+    await expect(user.dblClick(card)).resolves.not.toThrow();
+  });
+});

@@ -9,6 +9,14 @@ interface AssetCardProps {
   asset: Asset;
   selected: boolean;
   onClick: () => void;
+  /**
+   * Optional double-click handler. Wired to the native `onDoubleClick`
+   * event AND to the `Enter` keyboard activation on the focused card.
+   * Omitting it preserves the pre-Plan-21 behavior: `Enter` falls back
+   * to `onClick`, and mouse dblclick is a no-op (the two preceding
+   * clicks still fire `onClick`).
+   */
+  onDoubleClick?: () => void;
   showFavorite: boolean;
   /**
    * T2: the kebab (⋮) is always visible (no hover required) so touch
@@ -42,6 +50,7 @@ export function AssetCard({
   asset,
   selected,
   onClick,
+  onDoubleClick,
   showFavorite,
   onKebab,
   multiSelected = false,
@@ -59,7 +68,13 @@ export function AssetCard({
   // kebab), which have their own native button activation behavior.
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (e.target !== e.currentTarget) return;
-    if (e.key === 'Enter' || e.key === ' ') {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Enter mirrors mouse double-click: open the preview if a handler
+      // is provided, otherwise fall back to the single-click action.
+      if (onDoubleClick) onDoubleClick();
+      else onClick();
+    } else if (e.key === ' ') {
       e.preventDefault();
       onClick();
     }
@@ -71,6 +86,7 @@ export function AssetCard({
       data-anim="card"
       className={`${styles.card} ${selected ? styles.selected : ''} ${hasCheckbox ? styles.hasCheckbox : ''}`}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
       aria-pressed={selected}
       aria-label={`${asset.name}，${formatSize(asset.size)}`}
