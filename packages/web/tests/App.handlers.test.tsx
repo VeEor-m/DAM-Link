@@ -118,17 +118,13 @@ async function mountAppWithAsset(asset: Asset) {
 
 /** Click the asset card to open the DetailPanel.
  *
- *  Since Plan 17 Task 19, clicking a card also opens the Lightbox (which
- *  overlays the whole viewport). The DetailPanel handler tests don't care
- *  about the Lightbox, so we close it via its floating ✕ button before
- *  returning — otherwise the Lightbox's own "下载" / "收藏" buttons would
- *  conflict with the DetailPanel's.
+ *  Since Plan 21, single-click only opens the DetailPanel — the Lightbox is
+ *  now opened by double-click. So no floating-✕ close is needed here.
  */
 async function selectAsset(user: ReturnType<typeof userEvent.setup>, name: string) {
   // The card has aria-label "${name}，${size}" so a regex on the name works.
   const card = screen.getByRole('button', { name: new RegExp(name, 'i') });
   await user.click(card);
-  await user.click(screen.getByTestId('lightbox-floating-close'));
 }
 
 describe('App — BatchActionBar handlers', () => {
@@ -247,25 +243,18 @@ describe('App — BatchActionBar handlers', () => {
   // dialog's presence in the DOM), not on dispatched actions — the file
   // doesn't have a dispatched-actions tracker.
 
-  it('clicking a card opens the Lightbox dialog', async () => {
+  it('double-clicking a card opens the Lightbox dialog', async () => {
     const user = userEvent.setup();
     await mountAppWithAsset(makeApiAsset({ name: 'lightbox-open.png' }));
 
-    // No lightbox in the DOM until a card is clicked.
     expect(screen.queryByTestId('lightbox')).toBeNull();
 
-    // The AssetCard has role="button" and aria-label "${name}，${size}"
-    // (AssetCard.tsx:69,75). Task 19 wires its onClick to dispatch
-    // OPEN_LIGHTBOX.
     const card = screen.getByRole('button', { name: /lightbox-open\.png/i });
-    await user.click(card);
+    await user.dblClick(card);
 
-    // Lightbox.tsx renders the dialog with data-testid="lightbox" inside
-    // a portal, so it appears in document.body once the asset is set.
     expect(await screen.findByTestId('lightbox')).toBeInTheDocument();
 
-    // Clean up — close the lightbox so the test ends in a sane state
-    // (the floating ✕ is the same button selectAsset() uses).
+    // Cleanup — close the lightbox so the test ends in a sane state.
     await user.click(screen.getByTestId('lightbox-floating-close'));
   });
 
@@ -275,7 +264,7 @@ describe('App — BatchActionBar handlers', () => {
 
     // Open the lightbox.
     const card = screen.getByRole('button', { name: /lightbox-esc\.png/i });
-    await user.click(card);
+    await user.dblClick(card);
     await screen.findByTestId('lightbox');
 
     // The Lightbox auto-focuses its dialog (tabIndex={-1} + useEffect on
@@ -301,7 +290,7 @@ describe('App — BatchActionBar handlers', () => {
 
     // Open the lightbox.
     const card = screen.getByRole('button', { name: /lightbox-nav\.png/i });
-    await user.click(card);
+    await user.dblClick(card);
     await screen.findByTestId('lightbox');
 
     // Click the 图片 sidebar entry (Sidebar.tsx:104-110 — IconPhoto +
@@ -316,6 +305,23 @@ describe('App — BatchActionBar handlers', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('lightbox')).toBeNull();
     });
+  });
+
+  it('clicking a card does NOT open the Lightbox; it only selects the asset', async () => {
+    const user = userEvent.setup();
+    await mountAppWithAsset(makeApiAsset({ name: 'single-click.png' }));
+
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    const card = screen.getByRole('button', { name: /single-click\.png/i });
+    await user.click(card);
+
+    // Wait a tick to be sure no lightbox sneaks in.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lightbox')).toBeNull();
+
+    // The asset IS selected (DetailPanel renders the rename button).
+    expect(screen.getByTitle('点击重命名')).toHaveTextContent('single-click.png');
   });
 
   // ── Lightbox is image/video only (audio/document → DetailPanel only)

@@ -260,16 +260,20 @@ export default function App() {
     dispatch({ type: 'LIGHTBOX_NAVIGATE', assetId: id });
   }, [dispatch]);
 
-  // Card click: image/video → open the Lightbox preview; audio/document
-  // → open the DetailPanel only (the lightbox can't usefully preview
-  // them). useCallback is required because the onSelect prop is passed
-  // to memoized children (AssetGrid / AssetList) — an inline arrow would
-  // cause them to re-render on every state change. The deps
-  // [state.assets, dispatch] are correct: dispatch from useReducer is
-  // React-guaranteed stable, and we read state.assets to look up the
-  // asset's type, so a new reference is fine when assets change
-  // (uploads, etc.), not on every action.
-  const handleSelectAsset = useCallback(
+  // Card click: always select. Stably memoized (dispatch is React-guaranteed
+  // stable from useReducer), so the prop reference to memoized card/row
+  // children is constant across renders.
+  const handleSelect = useCallback(
+    (id: string) => dispatch({ type: 'SELECT_ASSET', id }),
+    [dispatch],
+  );
+
+  // Card double-click: open the Lightbox preview for image/video; fall back
+  // to select for audio/document (no extra behavior — the DetailPanel
+  // already opens via the single-click). The deps include `state.assets` so
+  // a new `handleOpen` reference is fine when the asset list changes
+  // (uploads, deletes) — not on every action.
+  const handleOpen = useCallback(
     (id: string) => {
       const a = state.assets.find((x) => x.id === id);
       if (a && (a.type === 'image' || a.type === 'video')) {
@@ -798,7 +802,8 @@ export default function App() {
               <AssetGrid
                 assets={visibleAssets}
                 selectedId={state.ui.selectedAssetId}
-                onSelect={handleSelectAsset}
+                onSelect={handleSelect}
+                onOpen={handleOpen}
                 showFavorites={
                   state.ui.selection.kind === 'smart' &&
                   state.ui.selection.smart === 'favorites'
@@ -812,7 +817,8 @@ export default function App() {
               <AssetList
                 assets={visibleAssets}
                 selectedId={state.ui.selectedAssetId}
-                onSelect={handleSelectAsset}
+                onSelect={handleSelect}
+                onOpen={handleOpen}
                 onToggleFavorite={(id) => dispatch({ type: 'TOGGLE_FAVORITE', id })}
                 onKebab={handleKebab}
                 multiSelectedIds={state.ui.selectedIds}
