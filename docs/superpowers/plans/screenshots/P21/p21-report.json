@@ -1,0 +1,40 @@
+{
+  "run_id": 1780879951,
+  "email": "p21-verify-1780879951@example.com",
+  "results": [
+    {
+      "name": "p21-grid-click-image",
+      "passed": true,
+      "details": "lightbox_count=0, detail_rename_count=1"
+    },
+    {
+      "name": "p21-grid-dblclick-image",
+      "passed": true,
+      "details": "lightbox_count=1"
+    },
+    {
+      "name": "p21-grid-dblclick-then-close",
+      "passed": true,
+      "details": "lightbox_count=0, detail_rename_count=1"
+    },
+    {
+      "name": "p21-list-dblclick-image",
+      "passed": true,
+      "details": "lightbox_count=1"
+    },
+    {
+      "name": "p21-grid-dblclick-document",
+      "passed": true,
+      "details": "lightbox_count=0, detail_rename_count=1"
+    },
+    {
+      "name": "p21-phone-dblclick-image",
+      "passed": true,
+      "details": "lightbox_count=1"
+    }
+  ],
+  "passed": true,
+  "errors": [],
+  "total": 6,
+  "passed_count": 6
+}
