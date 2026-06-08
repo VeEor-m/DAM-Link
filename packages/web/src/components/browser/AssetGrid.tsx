@@ -10,6 +10,13 @@ interface AssetGridProps {
   assets: Asset[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /**
+   * Optional double-click handler forwarded to each AssetCard. When
+   * provided, double-clicking a card invokes this with the asset's id.
+   * Image/video callers use this to open the Lightbox preview.
+   * Omitting it preserves the pre-Plan-21 behavior.
+   */
+  onOpen?: (id: string) => void;
   showFavorites: boolean;
   /**
    * T6: forwarded to each AssetCard so the kebab (⋮) menu can be opened
@@ -43,6 +50,7 @@ export function AssetGrid({
   assets,
   selectedId,
   onSelect,
+  onOpen,
   showFavorites,
   onKebab,
   multiSelectedIds,
@@ -109,6 +117,7 @@ export function AssetGrid({
                   asset={a}
                   selected={selectedId === a.id}
                   onClick={() => onSelect(a.id)}
+                  onDoubleClick={onOpen ? () => onOpen(a.id) : undefined}
                   showFavorite={showFavorites}
                   onKebab={
                     onKebab
