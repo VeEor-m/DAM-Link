@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "4d6d9d237053",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    "docs/superpowers/plans/screenshots/P21/p21-summary.md",
+    "docs/superpowers/plans/screenshots/P21/verify.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/4d/6d9d237053/0/metadata.json",
+      "transcript": "/4d/6d9d237053/0/full.jsonl",
+      "content_hash": "/4d/6d9d237053/0/content_hash.txt",
+      "prompt": "/4d/6d9d237053/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 317731,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 15578218,
+    "output_tokens": 78212,
+    "api_call_count": 157
+  }
+}
