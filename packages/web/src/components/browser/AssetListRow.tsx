@@ -18,6 +18,13 @@ interface AssetListRowProps {
   asset: Asset;
   selected: boolean;
   onClick: () => void;
+  /**
+   * Optional double-click handler. Wired to the row's `onDoubleClick`
+   * (so dblclicks anywhere on the row, including on the select button,
+   * reach it via bubbling) and to the `Enter` key on the focused
+   * select button. Omitting it preserves the pre-Plan-21 behavior.
+   */
+  onDoubleClick?: () => void;
   onToggleFavorite: () => void;
   onKebab: (e: React.MouseEvent) => void;
   /**
@@ -33,6 +40,7 @@ export function AssetListRow({
   asset,
   selected,
   onClick,
+  onDoubleClick,
   onToggleFavorite,
   onKebab,
   multiSelected = false,
@@ -49,6 +57,7 @@ export function AssetListRow({
     <div
       role="row"
       data-anim="row"
+      onDoubleClick={onDoubleClick}
       className={`${styles.row} ${selected ? styles.selected : ''}`}
     >
       {onToggleMultiSelect && (
@@ -72,6 +81,13 @@ export function AssetListRow({
         type="button"
         className={styles.selectButton}
         onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (onDoubleClick) onDoubleClick();
+            else onClick();
+          }
+        }}
         aria-label={`选择 ${asset.name}`}
         aria-pressed={selected}
       />
@@ -123,6 +139,9 @@ export function AssetListRow({
           e.stopPropagation();
           onKebab(e);
         }}
+        // Prevent a dblclick on the kebab from bubbling up to the row's
+        // onDoubleClick handler (which would open the Lightbox).
+        onDoubleClick={(e) => e.stopPropagation()}
         aria-label="更多操作"
         aria-haspopup="menu"
       >
