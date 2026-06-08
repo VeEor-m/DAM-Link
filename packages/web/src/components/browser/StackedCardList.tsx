@@ -8,6 +8,13 @@ interface StackedCardListProps {
   assets: Asset[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /**
+   * Optional double-click handler. Wired to the row's `onDoubleClick`
+   * (catches bubbled dblclicks from the select button and the row body)
+   * and to the `Enter` key on the focused select button. Omitting it
+   * preserves the pre-Plan-21 behavior.
+   */
+  onOpen?: (id: string) => void;
   onToggleFavorite: (id: string) => void;
   onKebab: (asset: Asset, anchor: HTMLElement) => void;
   /** Multi-select ids (forwarded to each row's checkbox). */
@@ -33,6 +40,7 @@ export function StackedCardList({
   assets,
   selectedId,
   onSelect,
+  onOpen,
   onToggleFavorite,
   onKebab,
   multiSelectedIds,
@@ -50,6 +58,7 @@ export function StackedCardList({
             className={styles.row}
             data-selected={selected}
             role="listitem"
+            onDoubleClick={() => onOpen?.(a.id)}
           >
             {onToggleMultiSelect && (
               <button
@@ -70,6 +79,13 @@ export function StackedCardList({
               type="button"
               className={styles.selectButton}
               onClick={() => onSelect(a.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (onOpen) onOpen(a.id);
+                  else onSelect(a.id);
+                }
+              }}
               aria-label={`选择 ${a.name}`}
               aria-pressed={selected}
             />
@@ -92,6 +108,9 @@ export function StackedCardList({
                   e.stopPropagation();
                   onKebab(a, e.currentTarget);
                 }}
+                // Prevent a dblclick on the kebab from bubbling up to the
+                // row's onDoubleClick handler (which would open the Lightbox).
+                onDoubleClick={(e) => e.stopPropagation()}
                 aria-label="更多操作"
                 aria-haspopup="menu"
               >
